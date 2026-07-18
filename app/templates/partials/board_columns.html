@@ -20,7 +20,7 @@
       <div class="card-action">
         {% if status == 'open' %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/start">
-          <button type="submit" class="btn btn-secondary btn-xs">В работу</button>
+          <button type="submit" class="btn btn-primary btn-xs">В работу</button>
         </form>
         {% elif status == 'in_progress' %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">

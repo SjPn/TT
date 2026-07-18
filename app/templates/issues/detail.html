@@ -14,12 +14,12 @@
       <div class="detail-actions">
         {% if can_start %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/start">
-          <button class="btn btn-secondary" type="submit">В работу</button>
+          <button class="btn btn-primary" type="submit">В работу</button>
         </form>
         {% endif %}
         {% if can_mark_done %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
-          <button class="btn btn-primary" type="submit">Отметить выполненной</button>
+          <button class="btn {% if can_start %}btn-secondary{% else %}btn-primary{% endif %}" type="submit">Отметить выполненной</button>
         </form>
         {% endif %}
         {% if can_confirm %}
@@ -31,7 +31,7 @@
         <a class="btn btn-secondary" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Настроить</a>
         {% endif %}
         {% if can_delete %}
-        <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('delete-issue').showModal()">Удалить</button>
+        <button class="btn btn-danger-ghost btn-sm" type="button" onclick="document.getElementById('delete-issue').showModal()">Удалить</button>
         {% endif %}
       </div>
     </div>
@@ -139,7 +139,7 @@
           <input type="file" name="photos" accept="image/*" multiple data-preview>
           <div class="photo-preview" hidden></div>
         </label>
-        <button class="btn btn-secondary" type="submit">Отправить</button>
+        <button class="btn btn-primary" type="submit">Отправить</button>
       </form>
       {% endif %}
     </section>
