@@ -12,10 +12,8 @@ data/
 *.db
 *.db-*
 
-# Docs (keep most local; ship README/DEPLOY only)
+# Docs (local only)
 *.md
-!README.md
-!DEPLOY.md
 docs/
 
 # Python
