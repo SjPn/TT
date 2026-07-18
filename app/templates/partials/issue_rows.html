@@ -21,8 +21,12 @@
   <td colspan="4" class="empty-cell">
     {% if view == 'archive' %}
     Архив пуст.
+    {% elif filter_mine %}
+    Нет задач, назначенных вам.
+    {% elif q or filter_status or filter_priority %}
+    Ничего не найдено. Сбросьте фильтры или создайте задачу (<kbd>N</kbd>).
     {% else %}
-    No issues match. Press <kbd>N</kbd> to create one.
+    Пока нет задач. Нажмите <kbd>N</kbd> или «Новая задача».
     {% endif %}
   </td>
 </tr>

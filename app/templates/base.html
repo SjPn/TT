@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,21 +10,21 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
-<body>
+<body{% if flash is defined and flash %} data-flash="{{ flash }}"{% endif %}>
   {% if user is defined and user %}
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="/">TaskTracker</a>
       {% if project is defined and project %}
       <nav class="crumbs">
-        <a href="/">Projects</a>
+        <a href="/">Проекты</a>
         <span>/</span>
         <a href="/projects/{{ project.id }}">{{ project.key }}</a>
       </nav>
       {% endif %}
       <div class="topbar-right">
         <details class="notif-menu">
-          <summary class="btn btn-ghost btn-sm notif-btn">
+          <summary class="btn btn-ghost btn-sm notif-btn {% if request.state.unread_count %}has-unread{% endif %}">
             Уведомления{% if request.state.unread_count is defined and request.state.unread_count %}
             <span class="notif-badge">{{ request.state.unread_count }}</span>{% endif %}
           </summary>
@@ -49,7 +49,7 @@
         </details>
         <span class="user-chip">{{ user.name }}</span>
         <form method="post" action="/logout">
-          <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
+          <button type="submit" class="btn btn-ghost btn-sm">Выйти</button>
         </form>
       </div>
     </div>

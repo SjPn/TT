@@ -151,15 +151,20 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.3rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
   border-radius: 999px;
   background: var(--bug);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  margin-left: 0.25rem;
+  margin-left: 0.3rem;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.notif-btn.has-unread {
+  color: var(--bug);
+  font-weight: 600;
 }
 .notif-panel {
   position: absolute;
@@ -633,6 +638,75 @@ label {
   padding: 0.7rem 1rem;
   border-radius: 8px;
   font-size: 0.9rem;
+  z-index: 50;
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.filter-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.filter-check input { accent-color: var(--teal); }
+
+.menu-more { position: relative; }
+.menu-more > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-inline: 0.55rem;
+}
+.menu-more > summary::-webkit-details-marker { display: none; }
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  min-width: 11rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.menu-panel button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.menu-panel button:hover { background: var(--bg-accent); }
+.menu-panel button.danger { color: var(--p1); }
+
+.photo-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.photo-preview img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
 }
 
 @media (max-width: 860px) {

@@ -4,33 +4,32 @@
     <h1>{{ project.name }}</h1>
     {% if project.description %}<p class="muted">{{ project.description }}</p>{% endif %}
     <p class="members-line muted">
-      {{ members|length }} member{% if members|length != 1 %}s{% endif %}:
+      Участники ({{ members|length }}):
       {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
     </p>
   </div>
   <div class="head-actions">
     <div class="view-toggle">
       <a class="btn {% if view == 'list' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
-         href="/projects/{{ project.id }}?view=list">List</a>
+         href="/projects/{{ project.id }}?view=list">Список</a>
       <a class="btn {% if view == 'board' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
-         href="/projects/{{ project.id }}?view=board">Board</a>
+         href="/projects/{{ project.id }}?view=board">Доска</a>
       <a class="btn {% if view == 'archive' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
          href="/projects/{{ project.id }}?view=archive">Архив</a>
     </div>
-    <button class="btn btn-secondary" type="button" onclick="document.getElementById('members').showModal()">
-      Members
-    </button>
-    {% if user.id == project.owner_id %}
-    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-project').showModal()">
-      Edit
-    </button>
-    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('delete-project').showModal()">
-      Delete
-    </button>
-    {% endif %}
+    <details class="menu-more">
+      <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
+      <div class="menu-panel">
+        <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
+        {% if user.id == project.owner_id %}
+        <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>
+        <button type="button" class="danger" onclick="document.getElementById('delete-project').showModal()">Удалить проект</button>
+        {% endif %}
+      </div>
+    </details>
     {% if view != 'archive' %}
     <button class="btn btn-primary" type="button" onclick="document.getElementById('new-issue').showModal()">
-      New issue <kbd>N</kbd>
+      Новая задача <kbd>N</kbd>
     </button>
     {% endif %}
   </div>
@@ -42,8 +41,8 @@
 <dialog id="members" class="modal">
   <form method="post" action="/projects/{{ project.id }}/members">
     <header>
-      <h2>Project members</h2>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+      <h2>Участники проекта</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
     </header>
     <input type="hidden" name="return_view" value="{{ view }}">
     <ul class="member-list">
@@ -51,16 +50,16 @@
       <li>
         <strong>{{ m.name }}</strong>
         <span class="muted">{{ m.email }}</span>
-        {% if m.id == project.owner_id %}<span class="pill">Owner</span>{% endif %}
+        {% if m.id == project.owner_id %}<span class="pill">Владелец</span>{% endif %}
       </li>
       {% endfor %}
     </ul>
-    <label>Add by email
-      <span class="hint">User must already be registered</span>
+    <label>Добавить по email
+      <span class="hint">Пользователь должен уже быть зарегистрирован</span>
       <input type="email" name="email" required placeholder="colleague@example.com" autofocus>
     </label>
     <footer>
-      <button class="btn btn-primary" type="submit">Add member</button>
+      <button class="btn btn-primary" type="submit">Добавить</button>
     </footer>
   </form>
 </dialog>
@@ -69,17 +68,17 @@
 <dialog id="edit-project" class="modal">
   <form method="post" action="/projects/{{ project.id }}/edit">
     <header>
-      <h2>Edit project</h2>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+      <h2>Изменить проект</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
     </header>
-    <label>Name
+    <label>Название
       <input name="name" value="{{ project.name }}" required autofocus>
     </label>
-    <label>Description
+    <label>Описание
       <textarea name="description" rows="3">{{ project.description }}</textarea>
     </label>
     <footer>
-      <button class="btn btn-primary" type="submit">Save</button>
+      <button class="btn btn-primary" type="submit">Сохранить</button>
     </footer>
   </form>
 </dialog>
@@ -87,13 +86,13 @@
 <dialog id="delete-project" class="modal">
   <form method="post" action="/projects/{{ project.id }}/delete">
     <header>
-      <h2>Delete project?</h2>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+      <h2>Удалить проект?</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
     </header>
     <p>Удалить проект <strong>{{ project.name }}</strong> и все его задачи? Это нельзя отменить.</p>
     <footer class="edit-actions">
-      <button class="btn btn-danger" type="submit">Delete</button>
-      <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-danger" type="submit">Удалить</button>
+      <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Отмена</button>
     </footer>
   </form>
 </dialog>

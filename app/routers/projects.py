@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from urllib.parse import quote
@@ -26,14 +26,25 @@ router = APIRouter(tags=["projects"])
 @router.get("/", response_class=HTMLResponse)
 def home(
     request: Request,
+    q: str | None = Query(None),
+    flash: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
     projects = get_accessible_projects(db, user)
+    needle = (q or "").strip().lower()
+    if needle:
+        projects = [
+            p
+            for p in projects
+            if needle in p.name.lower()
+            or needle in p.key.lower()
+            or needle in (p.description or "").lower()
+        ]
     return templates.TemplateResponse(
         request,
         "projects/index.html",
-        {"user": user, "projects": projects},
+        {"user": user, "projects": projects, "q": q or "", "flash": flash},
     )
 
 
@@ -51,7 +62,12 @@ def create_project_route(
         return templates.TemplateResponse(
             request,
             "projects/index.html",
-            {"user": user, "projects": projects, "error": "Project name is required"},
+            {
+                "user": user,
+                "projects": projects,
+                "q": "",
+                "error": "Укажите название проекта",
+            },
             status_code=400,
         )
     project = create_project(
@@ -61,7 +77,7 @@ def create_project_route(
         description=description,
         key=key.strip() or None,
     )
-    return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    return RedirectResponse(f"/projects/{project.id}?flash=project", status_code=303)
 
 
 @router.post("/projects/{project_id}/edit")
@@ -76,7 +92,7 @@ def edit_project_route(
     if not name.strip():
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
     update_project(db, project=project, name=name, description=description)
-    return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    return RedirectResponse(f"/projects/{project.id}?flash=project_saved", status_code=303)
 
 
 @router.post("/projects/{project_id}/delete")
@@ -87,7 +103,7 @@ def delete_project_route(
 ):
     project = require_project_owner(db, user, project_id)
     delete_project(db, project=project)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/?flash=project_deleted", status_code=303)
 
 
 @router.post("/projects/{project_id}/members")
@@ -101,7 +117,7 @@ def add_member_route(
     project = require_project_access(db, user, project_id)
     try:
         added = add_project_member(db, project=project, email=email)
-        msg = quote(f"Added {added.name} ({added.email})")
+        msg = quote(f"Добавлен {added.name} ({added.email})")
         return RedirectResponse(
             f"/projects/{project.id}?view={return_view}&member_ok={msg}",
             status_code=303,

@@ -15,21 +15,34 @@
         <span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span>
         {% if issue.assignee %}<span class="muted">{{ issue.assignee.name }}</span>{% endif %}
       </div>
-      {% if status in ['open', 'in_progress'] %}
+      {% if issue.assignee_id == user.id %}
       <div class="status-moves">
-        {% for s in ['open', 'in_progress'] if s != status %}
+        {% if status == 'open' %}
         <form hx-post="/projects/{{ project.id }}/issues/{{ issue.id }}/status"
               hx-target="#board"
               hx-swap="innerHTML">
-          <input type="hidden" name="status" value="{{ s }}">
-          <button type="submit" class="btn btn-ghost btn-xs">→ {{ status_labels[s] }}</button>
+          <input type="hidden" name="status" value="in_progress">
+          <button type="submit" class="btn btn-ghost btn-xs">→ В работе</button>
         </form>
-        {% endfor %}
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
+          <button type="submit" class="btn btn-ghost btn-xs">Готово</button>
+        </form>
+        {% elif status == 'in_progress' %}
+        <form hx-post="/projects/{{ project.id }}/issues/{{ issue.id }}/status"
+              hx-target="#board"
+              hx-swap="innerHTML">
+          <input type="hidden" name="status" value="open">
+          <button type="submit" class="btn btn-ghost btn-xs">→ Открыта</button>
+        </form>
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
+          <button type="submit" class="btn btn-ghost btn-xs">Готово</button>
+        </form>
+        {% endif %}
       </div>
       {% endif %}
     </article>
     {% else %}
-    <p class="column-empty">Empty</p>
+    <p class="column-empty">Пусто</p>
     {% endfor %}
   </div>
 </section>

@@ -1,27 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Register · TaskTracker{% endblock %}
+{% block title %}Регистрация · TaskTracker{% endblock %}
 {% block main_class %}auth-page{% endblock %}
 {% block content %}
 <section class="auth-shell">
   <div class="auth-brand">
     <p class="eyebrow">TaskTracker</p>
-    <h1>Start tracking in under a minute.</h1>
-    <p class="lede">Create an account, add a project, file your first bug.</p>
+    <h1>Начните трекинг за минуту.</h1>
+    <p class="lede">Создайте аккаунт, добавьте проект, заведите первую задачу.</p>
   </div>
   <form class="auth-card" method="post" action="/register">
-    <h2>Create account</h2>
+    <h2>Регистрация</h2>
     {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-    <label>Name
+    <label>Имя
       <input type="text" name="name" value="{{ name }}" required autofocus>
     </label>
     <label>Email
       <input type="email" name="email" value="{{ email }}" required>
     </label>
-    <label>Password
+    <label>Пароль
       <input type="password" name="password" minlength="6" required>
     </label>
-    <button class="btn btn-primary" type="submit">Create account</button>
-    <p class="auth-alt">Already registered? <a href="/login">Sign in</a></p>
+    <button class="btn btn-primary" type="submit">Создать аккаунт</button>
+    <p class="auth-alt">Уже есть аккаунт? <a href="/login">Войти</a></p>
   </form>
 </section>
 {% endblock %}

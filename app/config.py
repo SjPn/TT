@@ -14,6 +14,19 @@ class Settings(BaseSettings):
     session_cookie: str = "tt_session"
     session_max_age: int = 60 * 60 * 24 * 14  # 14 days
     https_only: bool = False
+    public_base_url: str = ""
+
+    # Optional email (all empty = disabled)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+
+    # Optional Telegram bot (empty = disabled)
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     @property
     def resolved_database_url(self) -> str:

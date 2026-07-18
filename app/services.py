@@ -84,16 +84,16 @@ def create_project(
 def add_project_member(db: Session, *, project: Project, email: str) -> User:
     user = get_user_by_email(db, email)
     if not user:
-        raise MemberError("No registered user with that email")
+        raise MemberError("Нет пользователя с таким email")
     if user.id == project.owner_id:
-        raise MemberError("That user is already the project owner")
+        raise MemberError("Этот пользователь уже владелец проекта")
     existing = (
         db.query(ProjectMember)
         .filter(ProjectMember.project_id == project.id, ProjectMember.user_id == user.id)
         .first()
     )
     if existing:
-        raise MemberError("User is already a project member")
+        raise MemberError("Пользователь уже в проекте")
     db.add(ProjectMember(project_id=project.id, user_id=user.id, role="member"))
     db.commit()
     notify(
@@ -147,6 +147,11 @@ def notify(
     db.add(item)
     db.commit()
     db.refresh(item)
+    user = db.get(User, user_id)
+    if user:
+        from app.notify_channels import push_external
+
+        push_external(email=user.email, title=title, body=body, link=link)
     return item
 
 
@@ -416,6 +421,23 @@ async def save_issue_images(
     db: Session, *, issue: Issue, files: list[UploadFile]
 ) -> list[Attachment]:
     return await save_images(db, issue=issue, files=files)
+
+
+def delete_issue(db: Session, *, issue: Issue) -> int:
+    project_id = issue.project_id
+    db.delete(issue)
+    db.commit()
+    return project_id
+
+
+def start_issue(db: Session, *, issue: Issue, user: User) -> Issue:
+    if issue.assignee_id != user.id:
+        raise WorkflowError("В работу может взять только исполнитель")
+    if issue.status == IssueStatus.IN_PROGRESS:
+        return issue
+    if issue.status != IssueStatus.OPEN:
+        raise WorkflowError("Нельзя взять эту задачу в работу")
+    return update_issue_status(db, issue, IssueStatus.IN_PROGRESS)
 
 
 def migrate_legacy_statuses(db: Session) -> None:

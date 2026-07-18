@@ -45,10 +45,10 @@ STATUS_LABELS = {
     IssueStatus.RESOLVED: "Решено",
 }
 PRIORITY_LABELS = {
-    Priority.P1: "P1 · Critical",
-    Priority.P2: "P2 · High",
-    Priority.P3: "P3 · Medium",
-    Priority.P4: "P4 · Low",
+    Priority.P1: "P1 · Критичный",
+    Priority.P2: "P2 · Высокий",
+    Priority.P3: "P3 · Средний",
+    Priority.P4: "P4 · Низкий",
 }
 
 

@@ -49,7 +49,7 @@ def login_submit(
         return templates.TemplateResponse(
             request,
             "auth/login.html",
-            {"error": "Invalid email or password", "email": email},
+            {"error": "Неверный email или пароль", "email": email},
             status_code=400,
         )
     redirect = RedirectResponse("/", status_code=303)
@@ -81,7 +81,7 @@ def register_submit(
             request,
             "auth/register.html",
             {
-                "error": "Password must be at least 6 characters",
+                "error": "Пароль не короче 6 символов",
                 "email": email,
                 "name": name,
             },
@@ -92,7 +92,7 @@ def register_submit(
             request,
             "auth/register.html",
             {
-                "error": "Email already registered",
+                "error": "Этот email уже зарегистрирован",
                 "email": email,
                 "name": name,
             },

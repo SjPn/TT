@@ -1,12 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Projects · TaskTracker{% endblock %}
+{% block title %}Проекты · TaskTracker{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div></div>
-  <button class="btn btn-primary" type="button" onclick="document.getElementById('new-project').showModal()">New project</button>
+  <div>
+    <h1>Проекты</h1>
+  </div>
+  <button class="btn btn-primary" type="button" onclick="document.getElementById('new-project').showModal()">Новый проект</button>
 </div>
 
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+{% if projects|length > 3 or q %}
+<form class="filters" method="get" action="/">
+  <input type="search" name="q" value="{{ q }}" placeholder="Поиск проектов…" class="search" autofocus>
+  <button class="btn btn-secondary" type="submit">Найти</button>
+  {% if q %}<a class="btn btn-ghost" href="/">Сбросить</a>{% endif %}
+</form>
+{% endif %}
 
 {% if projects %}
 <ul class="project-grid">
@@ -22,27 +32,27 @@
 </ul>
 {% else %}
 <div class="empty">
-  <p class="muted">No projects yet.</p>
+  <p class="muted">{% if q %}Ничего не найдено по запросу «{{ q }}».{% else %}Пока нет проектов. Создайте первый — кнопка справа сверху.{% endif %}</p>
 </div>
 {% endif %}
 
 <dialog id="new-project" class="modal">
   <form method="post" action="/projects">
     <header>
-      <h2>New project</h2>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+      <h2>Новый проект</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
     </header>
-    <label>Name
-      <input name="name" required placeholder="Mobile app" autofocus>
+    <label>Название
+      <input name="name" required placeholder="Мобильное приложение" autofocus>
     </label>
-    <label>Key <span class="hint">(optional, e.g. MOB)</span>
-      <input name="key" maxlength="8" placeholder="Auto from name">
+    <label>Ключ <span class="hint">(необязательно, напр. MOB)</span>
+      <input name="key" maxlength="8" placeholder="Авто из названия">
     </label>
-    <label>Description
-      <textarea name="description" rows="3" placeholder="What is this project about?"></textarea>
+    <label>Описание
+      <textarea name="description" rows="3" placeholder="О чём этот проект?"></textarea>
     </label>
     <footer>
-      <button class="btn btn-primary" type="submit">Create</button>
+      <button class="btn btn-primary" type="submit">Создать</button>
     </footer>
   </form>
 </dialog>

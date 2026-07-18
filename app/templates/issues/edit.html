@@ -14,36 +14,36 @@
   </div>
 
   <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}" class="edit-form">
-    <label>Title
+    <label>Название
       <input name="title" value="{{ issue.title }}" required autofocus>
     </label>
-    <label>Description
+    <label>Описание
       <textarea name="description" rows="10">{{ issue.description }}</textarea>
     </label>
     <div class="form-grid">
-      <label>Priority
+      <label>Приоритет
         <select name="priority">
           {% for p in priorities %}
           <option value="{{ p }}" {% if issue.priority == p %}selected{% endif %}>{{ priority_labels[p] }}</option>
           {% endfor %}
         </select>
       </label>
-      <label>Assignee
+      <label>Исполнитель
         <select name="assignee_id">
-          <option value="">Unassigned</option>
+          <option value="">Не назначен</option>
           {% for m in members %}
           <option value="{{ m.id }}" {% if issue.assignee_id == m.id %}selected{% endif %}>{{ m.name }}</option>
           {% endfor %}
         </select>
       </label>
     </div>
-    <label>Labels
+    <label>Метки
       <input name="labels" value="{{ issue.labels }}" placeholder="ui, backend">
     </label>
-    <p class="muted meta">Статус меняется через выполнение выполнения и подтверждение автора — не здесь.</p>
+    <p class="muted meta">Статус меняется через кнопку выполнения и подтверждение автора — не здесь.</p>
     <footer class="edit-actions">
-      <button class="btn btn-primary" type="submit">Save changes</button>
-      <a class="btn btn-ghost" href="/projects/{{ project.id }}/issues/{{ issue.id }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">Сохранить</button>
+      <a class="btn btn-ghost" href="/projects/{{ project.id }}/issues/{{ issue.id }}">Отмена</a>
     </footer>
   </form>
 </div>

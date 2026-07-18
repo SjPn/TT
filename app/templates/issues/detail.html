@@ -12,6 +12,11 @@
         <h1>{{ issue.title }}</h1>
       </div>
       <div class="detail-actions">
+        {% if can_start %}
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/start">
+          <button class="btn btn-secondary" type="submit">В работу</button>
+        </form>
+        {% endif %}
         {% if can_mark_done %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
           <button class="btn btn-primary" type="submit">Отметить выполненной</button>
@@ -24,6 +29,9 @@
         {% endif %}
         {% if user.id == issue.author_id and not issue.is_archived %}
         <a class="btn btn-secondary" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Настроить</a>
+        {% endif %}
+        {% if can_delete %}
+        <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('delete-issue').showModal()">Удалить</button>
         {% endif %}
       </div>
     </div>
@@ -55,13 +63,13 @@
       {% if issue.description %}
       {{ issue.description | md | safe }}
       {% else %}
-      <p class="muted">No description.</p>
+      <p class="muted">Без описания.</p>
       {% endif %}
     </article>
 
     {% if issue.attachments %}
     <section class="photo-gallery">
-      <h2>Photos</h2>
+      <h2>Фото</h2>
       <div class="photo-grid">
         {% for att in issue.attachments %}
         <a href="/uploads/{{ att.stored_name }}" target="_blank" rel="noopener">
@@ -73,12 +81,12 @@
     {% endif %}
 
     <p class="meta muted">
-      Created by {{ issue.author.name }}
+      Создал {{ issue.author.name }}
       {% if issue.created_at %}· {{ issue.created_at.strftime('%Y-%m-%d') }}{% endif %}
     </p>
 
     <section class="comments">
-      <h2>Comments</h2>
+      <h2>Комментарии</h2>
       {% for c in issue.comments %}
       <article class="comment">
         <header>
@@ -99,21 +107,38 @@
         {% endif %}
       </article>
       {% else %}
-      <p class="muted">No comments yet.</p>
+      <p class="muted">Комментариев пока нет.</p>
       {% endfor %}
 
       {% if not issue.is_archived %}
       <form class="comment-form" method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments" enctype="multipart/form-data">
-        <label>Comment
-          <textarea name="body" rows="3" placeholder="Text…"></textarea>
+        <label>Комментарий
+          <textarea name="body" rows="3" placeholder="Текст…"></textarea>
         </label>
-        <label>Photos
-          <input type="file" name="photos" accept="image/*" multiple>
+        <label>Фото
+          <input type="file" name="photos" accept="image/*" multiple data-preview>
+          <div class="photo-preview" hidden></div>
         </label>
-        <button class="btn btn-secondary" type="submit">Send</button>
+        <button class="btn btn-secondary" type="submit">Отправить</button>
       </form>
       {% endif %}
     </section>
   </section>
 </div>
+
+{% if can_delete %}
+<dialog id="delete-issue" class="modal">
+  <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/delete">
+    <header>
+      <h2>Удалить задачу?</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
+    </header>
+    <p>Удалить <strong>{{ issue.title }}</strong>? Это нельзя отменить.</p>
+    <footer class="edit-actions">
+      <button class="btn btn-danger" type="submit">Удалить</button>
+      <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Отмена</button>
+    </footer>
+  </form>
+</dialog>
+{% endif %}
 {% endblock %}

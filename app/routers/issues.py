@@ -23,6 +23,7 @@ from app.services import (
     add_comment,
     confirm_issue_done,
     create_issue,
+    delete_issue,
     issues_by_status,
     list_issues,
     mark_issue_done,
@@ -30,6 +31,7 @@ from app.services import (
     notify_assignment,
     save_images,
     save_issue_images,
+    start_issue,
     update_issue_status,
 )
 from app.templating import templates
@@ -58,23 +60,28 @@ def project_issues(
     q: str | None = Query(None),
     status: str | None = Query(None),
     priority: str | None = Query(None),
+    mine: str | None = Query(None),
     view: str = Query("list"),
     member_ok: str | None = Query(None),
     member_error: str | None = Query(None),
+    flash: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
     project = require_project_access(db, user, project_id)
     members = project_members(db, project)
+    only_mine = mine in ("1", "true", "yes", "on")
     ctx = _common_ctx(project, user, members)
     ctx.update(
         {
             "q": q or "",
             "filter_status": status or "",
             "filter_priority": priority or "",
+            "filter_mine": only_mine,
             "view": view,
             "member_ok": member_ok,
             "member_error": member_error,
+            "flash": flash,
         }
     )
     if view == "board":
@@ -82,7 +89,14 @@ def project_issues(
         return templates.TemplateResponse(request, "issues/board.html", ctx)
 
     if view == "archive":
-        ctx["issues"] = list_issues(db, project, q=q, priority=priority, archived=True)
+        ctx["issues"] = list_issues(
+            db,
+            project,
+            q=q,
+            priority=priority,
+            assignee_id=user.id if only_mine else None,
+            archived=True,
+        )
         return templates.TemplateResponse(request, "issues/archive.html", ctx)
 
     ctx["issues"] = list_issues(
@@ -91,6 +105,7 @@ def project_issues(
         q=q,
         status=status,
         priority=priority,
+        assignee_id=user.id if only_mine else None,
         archived=False,
     )
     return templates.TemplateResponse(request, "issues/list.html", ctx)
@@ -126,7 +141,10 @@ async def create_issue_route(
         await save_issue_images(db, issue=issue, files=list(photos))
     if assignee:
         notify_assignment(db, issue=issue, assignee_id=assignee, actor=user)
-    return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+    return RedirectResponse(
+        f"/projects/{project.id}/issues/{issue.id}?flash=created",
+        status_code=303,
+    )
 
 
 def _get_issue_or_redirect(db: Session, project: Project, issue_id: int):
@@ -168,6 +186,7 @@ def issue_detail(
     request: Request,
     project_id: int,
     issue_id: int,
+    flash: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -193,6 +212,10 @@ def issue_detail(
         {
             **_common_ctx(project, user, members),
             "issue": issue,
+            "flash": flash,
+            "can_start": (
+                issue.assignee_id == user.id and issue.status == IssueStatus.OPEN
+            ),
             "can_mark_done": (
                 issue.assignee_id == user.id
                 and issue.status
@@ -202,6 +225,7 @@ def issue_detail(
                 issue.author_id == user.id
                 and issue.status == IssueStatus.PENDING_CONFIRM
             ),
+            "can_delete": issue.author_id == user.id,
         },
     )
 
@@ -239,6 +263,49 @@ def update_issue(
     db.commit()
     if new_assignee and new_assignee != prev_assignee:
         notify_assignment(db, issue=issue, assignee_id=new_assignee, actor=user)
+    return RedirectResponse(
+        f"/projects/{project.id}/issues/{issue.id}?flash=saved",
+        status_code=303,
+    )
+
+
+@router.post("/projects/{project_id}/issues/{issue_id}/delete")
+def delete_issue_route(
+    project_id: int,
+    issue_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    project = require_project_access(db, user, project_id)
+    issue = _get_issue_or_redirect(db, project, issue_id)
+    if not issue:
+        return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    if issue.author_id != user.id:
+        return RedirectResponse(
+            f"/projects/{project.id}/issues/{issue.id}", status_code=303
+        )
+    delete_issue(db, issue=issue)
+    return RedirectResponse(
+        f"/projects/{project.id}?flash=deleted",
+        status_code=303,
+    )
+
+
+@router.post("/projects/{project_id}/issues/{issue_id}/start")
+def start_issue_route(
+    project_id: int,
+    issue_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    project = require_project_access(db, user, project_id)
+    issue = _get_issue_or_redirect(db, project, issue_id)
+    if not issue:
+        return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    try:
+        start_issue(db, issue=issue, user=user)
+    except WorkflowError:
+        pass
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
 
 
@@ -291,9 +358,13 @@ def change_status(
     issue = db.get(Issue, issue_id)
     if not issue or issue.project_id != project.id:
         return HTMLResponse("", status_code=404)
-    # Board: only open ↔ in_progress
+    # Board: assignee moves open ↔ in_progress only
     allowed = {IssueStatus.OPEN, IssueStatus.IN_PROGRESS}
-    if issue.status in allowed and status in allowed:
+    if (
+        issue.assignee_id == user.id
+        and issue.status in allowed
+        and status in allowed
+    ):
         update_issue_status(db, issue, status)
     members = project_members(db, project)
     columns = issues_by_status(db, project)
