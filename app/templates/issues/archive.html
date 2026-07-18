@@ -3,20 +3,23 @@
 {% block content %}
 {% include "partials/project_header.html" %}
 
-<form class="filters" method="get" action="/projects/{{ project.id }}" data-auto-filter>
-  <input type="hidden" name="view" value="archive">
-  <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="search">
-  <select name="priority">
-    <option value="">Все приоритеты</option>
-    {% for p in priorities %}
-    <option value="{{ p }}" {% if filter_priority == p %}selected{% endif %}>{{ priority_labels[p] }}</option>
-    {% endfor %}
-  </select>
-  <label class="filter-check">
-    <input type="checkbox" name="mine" value="1" {% if filter_mine %}checked{% endif %}>
-    Мои
-  </label>
-</form>
+<details class="filters-wrap" {% if q or filter_priority or filter_mine %}open{% endif %}>
+  <summary class="filters-summary">Поиск и фильтры{% if filter_mine or filter_priority or q %} · активны{% endif %}</summary>
+  <form class="filters" method="get" action="/projects/{{ project.id }}" data-auto-filter>
+    <input type="hidden" name="view" value="archive">
+    <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="search">
+    <select name="priority">
+      <option value="">Все приоритеты</option>
+      {% for p in priorities %}
+      <option value="{{ p }}" {% if filter_priority == p %}selected{% endif %}>{{ priority_labels[p] }}</option>
+      {% endfor %}
+    </select>
+    <label class="filter-check">
+      <input type="checkbox" name="mine" value="1" {% if filter_mine %}checked{% endif %}>
+      Мои
+    </label>
+  </form>
+</details>
 
 <div class="table-wrap">
   <table class="issue-table">

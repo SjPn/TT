@@ -1,12 +1,38 @@
 <div class="page-head project-head">
-  <div>
+  <div class="project-title-row">
     <h1>{{ project.name }}</h1>
-    {% if project.description %}<p class="muted">{{ project.description }}</p>{% endif %}
+    <details class="menu-more">
+      <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
+      <div class="menu-panel">
+        <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
+        {% if user.id == project.owner_id %}
+        <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>
+        <button type="button" class="danger" onclick="document.getElementById('delete-project').showModal()">Удалить проект</button>
+        {% endif %}
+        <form method="post" action="/logout" class="menu-logout-mobile">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </div>
+
+  {% if project.description or members %}
+  <div class="project-meta-full">
+    {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
     <p class="members-line muted">
       Участники ({{ members|length }}):
       {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
     </p>
   </div>
+  <details class="project-meta">
+    <summary>О проекте · {{ members|length }} уч.</summary>
+    {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
+    <p class="members-line muted">
+      {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+  </details>
+  {% endif %}
+
   <div class="head-actions">
     <div class="view-toggle">
       <a class="btn btn-sm {% if view == 'list' %}is-active{% endif %}"
@@ -16,19 +42,9 @@
       <a class="btn btn-sm {% if view == 'archive' %}is-active{% endif %}"
          href="/projects/{{ project.id }}?view=archive">Архив</a>
     </div>
-    <details class="menu-more">
-      <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
-      <div class="menu-panel">
-        <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
-        {% if user.id == project.owner_id %}
-        <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>
-        <button type="button" class="danger" onclick="document.getElementById('delete-project').showModal()">Удалить проект</button>
-        {% endif %}
-      </div>
-    </details>
     {% if view != 'archive' %}
     <button class="btn btn-primary new-issue-btn" type="button" onclick="document.getElementById('new-issue').showModal()">
-      Новая задача <kbd class="hide-mobile">C</kbd>
+      Новая задача <kbd>C</kbd>
     </button>
     {% endif %}
   </div>
