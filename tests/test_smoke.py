@@ -241,3 +241,120 @@ def test_project_search(client: TestClient):
     assert r.status_code == 200
     assert "Alpha Mobile" in r.text
     assert "Beta Web" not in r.text
+
+
+def test_mentions_and_timeline(client: TestClient):
+    _register(client, "ann@ex.com", "Анна")
+    client.post("/projects", data={"name": "M", "key": "MM", "description": ""})
+    from app.database import SessionLocal
+    from app.models import Activity, Notification, Project, User
+
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    # Second user
+    client.post("/logout", follow_redirects=False)
+    _register(client, "bob@ex.com", "Боб")
+    client.post("/logout", follow_redirects=False)
+
+    # Owner adds Bob, creates issue, Bob mentions owner
+    client.post(
+        "/login",
+        data={"email": "ann@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/members",
+        data={"email": "bob@ex.com", "return_view": "list"},
+        follow_redirects=False,
+    )
+    r = client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Проверить ленту",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    issue_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[-1])
+
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "bob@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "Глянь @Анна пожалуйста"},
+        follow_redirects=False,
+    )
+
+    db = SessionLocal()
+    try:
+        notifs = (
+            db.query(Notification)
+            .join(User, Notification.user_id == User.id)
+            .filter(User.email == "ann@ex.com", Notification.kind == "mention")
+            .all()
+        )
+        assert len(notifs) >= 1
+        acts = db.query(Activity).filter(Activity.issue_id == issue_id).all()
+        kinds = {a.kind for a in acts}
+        assert "created" in kinds
+        assert "comment" in kinds
+    finally:
+        db.close()
+
+    detail = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert detail.status_code == 200
+    assert "Лента" in detail.text
+    assert "Создал задачу" in detail.text or "Создал" in detail.text
+
+
+def test_delete_issue_removes_upload_files(client: TestClient):
+    _register(client, "u@ex.com", "U")
+    client.post("/projects", data={"name": "P", "key": "PX", "description": ""})
+    from app.database import SessionLocal
+    from app.models import Attachment, Issue, Project, User
+    from app.services import UPLOAD_DIR, delete_issue
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).one()
+        project = db.query(Project).one()
+        issue = Issue(
+            project_id=project.id,
+            number=1,
+            title="With photo",
+            description="",
+            author_id=user.id,
+        )
+        db.add(issue)
+        db.flush()
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        stored = "test_photo_xyz.jpg"
+        (UPLOAD_DIR / stored).write_bytes(b"fakeimg")
+        db.add(
+            Attachment(
+                issue_id=issue.id,
+                filename="a.jpg",
+                stored_name=stored,
+                content_type="image/jpeg",
+            )
+        )
+        db.commit()
+        db.refresh(issue)
+        assert (UPLOAD_DIR / stored).exists()
+        delete_issue(db, issue=issue)
+    finally:
+        db.close()
+
+    assert not (UPLOAD_DIR / stored).exists()

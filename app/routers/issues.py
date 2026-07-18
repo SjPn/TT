@@ -11,6 +11,7 @@ from app.models import (
     PRIORITY_LABELS,
     STATUS_LABELS,
     STATUS_ORDER,
+    Activity,
     Comment,
     Issue,
     IssueStatus,
@@ -27,6 +28,7 @@ from app.services import (
     issues_by_status,
     list_issues,
     mark_issue_done,
+    next_step_hint,
     normalize_labels,
     notify_assignment,
     save_images,
@@ -199,6 +201,9 @@ def issue_detail(
             joinedload(Issue.comments).joinedload(Comment.author),
             joinedload(Issue.comments).joinedload(Comment.attachments),
             joinedload(Issue.attachments),
+            joinedload(Issue.activities).joinedload(Activity.actor),
+            joinedload(Issue.activities).joinedload(Activity.comment).joinedload(Comment.attachments),
+            joinedload(Issue.activities).joinedload(Activity.comment).joinedload(Comment.author),
         )
         .filter(Issue.id == issue_id, Issue.project_id == project.id)
         .first()
@@ -206,6 +211,10 @@ def issue_detail(
     if not issue:
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
     members = project_members(db, project)
+    timeline = sorted(
+        issue.activities,
+        key=lambda a: (a.created_at is None, a.created_at, a.id),
+    )
     return templates.TemplateResponse(
         request,
         "issues/detail.html",
@@ -213,6 +222,8 @@ def issue_detail(
             **_common_ctx(project, user, members),
             "issue": issue,
             "flash": flash,
+            "timeline": timeline,
+            "next_step": next_step_hint(issue=issue, user=user),
             "can_start": (
                 issue.assignee_id == user.id and issue.status == IssueStatus.OPEN
             ),
@@ -365,7 +376,7 @@ def change_status(
         and issue.status in allowed
         and status in allowed
     ):
-        update_issue_status(db, issue, status)
+        update_issue_status(db, issue, status, actor=user)
     members = project_members(db, project)
     columns = issues_by_status(db, project)
     return templates.TemplateResponse(
@@ -398,7 +409,9 @@ async def post_comment(
     has_photos = any(p.filename for p in photos) if photos else False
     if not text and not has_photos:
         return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
-    comment = add_comment(db, issue=issue, author=user, body=text or " ")
+    comment = add_comment(
+        db, issue=issue, author=user, body=text or " ", members=project_members(db, project)
+    )
     if has_photos:
         await save_images(db, issue=issue, files=list(photos), comment=comment)
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)

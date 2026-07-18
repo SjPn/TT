@@ -73,6 +73,15 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
 
+    @property
+    def initials(self) -> str:
+        parts = [p for p in self.name.replace("-", " ").split() if p]
+        if not parts:
+            return "?"
+        if len(parts) == 1:
+            return parts[0][:2].upper()
+        return (parts[0][0] + parts[-1][0]).upper()
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -134,6 +143,9 @@ class Issue(Base):
     comments: Mapped[list["Comment"]] = relationship(
         back_populates="issue", cascade="all, delete-orphan", order_by="Comment.created_at"
     )
+    activities: Mapped[list["Activity"]] = relationship(
+        back_populates="issue", cascade="all, delete-orphan", order_by="Activity.created_at"
+    )
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="issue",
         cascade="all, delete-orphan",
@@ -171,6 +183,26 @@ class Comment(Base):
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="comment", cascade="all, delete-orphan", order_by="Attachment.created_at"
     )
+
+
+class Activity(Base):
+    """Unified timeline: status, assign, comments."""
+
+    __tablename__ = "activities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), default="info")
+    body: Mapped[str] = mapped_column(String(500), default="")
+    comment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("comments.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    issue: Mapped["Issue"] = relationship(back_populates="activities")
+    actor: Mapped[Optional["User"]] = relationship()
+    comment: Mapped[Optional["Comment"]] = relationship()
 
 
 class Attachment(Base):

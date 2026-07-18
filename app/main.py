@@ -13,6 +13,7 @@ from app.routers import auth, issues, notifications, projects
 from app.services import (
     list_notifications,
     migrate_attachment_comment_id,
+    migrate_backfill_activities,
     migrate_legacy_statuses,
     unread_notification_count,
 )
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     db = SessionLocal()
     try:
         migrate_legacy_statuses(db)
+        migrate_backfill_activities(db)
     finally:
         db.close()
 

@@ -7,35 +7,24 @@
   <div class="column-body">
     {% for issue in columns[status] %}
     <article class="card-issue">
-      <a href="/projects/{{ project.id }}/issues/{{ issue.id }}">
-        <span class="mono key">{{ issue.key }}</span>
+      <a class="card-main" href="/projects/{{ project.id }}/issues/{{ issue.id }}">
         <strong>{{ issue.title }}</strong>
       </a>
       <div class="card-meta">
         <span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span>
-        {% if issue.assignee %}<span class="muted">{{ issue.assignee.name }}</span>{% endif %}
+        {% if issue.assignee %}
+        <span class="avatar avatar-sm" title="{{ issue.assignee.name }}">{{ issue.assignee.initials }}</span>
+        {% endif %}
       </div>
       {% if issue.assignee_id == user.id %}
-      <div class="status-moves">
+      <div class="card-action">
         {% if status == 'open' %}
-        <form hx-post="/projects/{{ project.id }}/issues/{{ issue.id }}/status"
-              hx-target="#board"
-              hx-swap="innerHTML">
-          <input type="hidden" name="status" value="in_progress">
-          <button type="submit" class="btn btn-ghost btn-xs">→ В работе</button>
-        </form>
-        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
-          <button type="submit" class="btn btn-ghost btn-xs">Готово</button>
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/start">
+          <button type="submit" class="btn btn-secondary btn-xs">В работу</button>
         </form>
         {% elif status == 'in_progress' %}
-        <form hx-post="/projects/{{ project.id }}/issues/{{ issue.id }}/status"
-              hx-target="#board"
-              hx-swap="innerHTML">
-          <input type="hidden" name="status" value="open">
-          <button type="submit" class="btn btn-ghost btn-xs">→ Открыта</button>
-        </form>
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
-          <button type="submit" class="btn btn-ghost btn-xs">Готово</button>
+          <button type="submit" class="btn btn-primary btn-xs">Готово</button>
         </form>
         {% endif %}
       </div>

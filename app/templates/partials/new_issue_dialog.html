@@ -1,42 +1,46 @@
 <dialog id="new-issue" class="modal modal-wide">
-  <form method="post" action="/projects/{{ project.id }}/issues" enctype="multipart/form-data">
+  <form method="post" action="/projects/{{ project.id }}/issues" enctype="multipart/form-data" id="new-issue-form">
     <header>
       <h2>Новая задача</h2>
       <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Закрыть</button>
     </header>
-    <label>Название
-      <input name="title" required placeholder="Кратко и ясно" autofocus>
+    <label class="title-field">Название
+      <input name="title" required placeholder="Кратко и ясно — Enter чтобы создать" autofocus data-quick-title>
     </label>
-    <label>Описание
-      <textarea name="description" rows="4" placeholder="Поддерживается Markdown"></textarea>
-    </label>
-    <label>Фото
-      <span class="hint">JPG, PNG, GIF, WebP — несколько файлов</span>
-      <input type="file" name="photos" accept="image/*" multiple data-preview>
-      <div class="photo-preview" hidden></div>
-    </label>
-    <div class="form-grid">
-      <label>Приоритет
-        <select name="priority">
-          {% for p in priorities %}
-          <option value="{{ p }}" {% if p == 'p3' %}selected{% endif %}>{{ priority_labels[p] }}</option>
-          {% endfor %}
-        </select>
+    <p class="quick-hint muted">Enter создаёт сразу. Детали — по желанию ниже.</p>
+    <details class="more-fields">
+      <summary>Добавить описание, фото, исполнителя…</summary>
+      <label>Описание
+        <textarea name="description" rows="3" placeholder="Markdown по желанию"></textarea>
       </label>
-      <label>Исполнитель
-        <select name="assignee_id">
-          <option value="">Не назначен</option>
-          {% for m in members %}
-          <option value="{{ m.id }}">{{ m.name }}</option>
-          {% endfor %}
-        </select>
+      <label>Фото
+        <span class="hint">JPG, PNG, GIF, WebP</span>
+        <input type="file" name="photos" accept="image/*" multiple data-preview>
+        <div class="photo-preview" hidden></div>
       </label>
-    </div>
-    <label>Метки <span class="hint">(через запятую)</span>
-      <input name="labels" placeholder="ui, backend">
-    </label>
+      <div class="form-grid">
+        <label>Приоритет
+          <select name="priority">
+            {% for p in priorities %}
+            <option value="{{ p }}" {% if p == 'p3' %}selected{% endif %}>{{ priority_labels[p] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Исполнитель
+          <select name="assignee_id">
+            <option value="">Не назначен</option>
+            {% for m in members %}
+            <option value="{{ m.id }}">{{ m.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <label>Метки <span class="hint">(через запятую)</span>
+        <input name="labels" placeholder="ui, backend">
+      </label>
+    </details>
     <footer>
-      <button class="btn btn-primary" type="submit">Создать задачу</button>
+      <button class="btn btn-primary" type="submit">Создать</button>
     </footer>
   </form>
 </dialog>

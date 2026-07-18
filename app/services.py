@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from app.auth import get_user_by_email
 from app.config import settings
 from app.deps import slugify_key
 from app.models import (
+    STATUS_LABELS,
+    Activity,
     Attachment,
     BOARD_STATUSES,
     Comment,
@@ -32,6 +35,7 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp",
 }
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MENTION_RE = re.compile(r"@([^\s@]+(?:\s+[^\s@]+)?)")
 
 
 class MemberError(Exception):
@@ -122,9 +126,28 @@ def update_project(
     return project
 
 
+def _unlink_uploads(stored_names: list[str]) -> None:
+    for name in stored_names:
+        if not name or "/" in name or "\\" in name or ".." in name:
+            continue
+        path = UPLOAD_DIR / name
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def delete_project(db: Session, *, project: Project) -> None:
+    stored = [
+        row[0]
+        for row in db.query(Attachment.stored_name)
+        .join(Issue, Attachment.issue_id == Issue.id)
+        .filter(Issue.project_id == project.id)
+        .all()
+    ]
     db.delete(project)
     db.commit()
+    _unlink_uploads(stored)
 
 
 def notify(
@@ -172,6 +195,117 @@ def notify_assignment(
         body=f"{issue.key} · назначил {actor.name}",
         link=f"/projects/{issue.project_id}/issues/{issue.id}",
     )
+    assignee = db.get(User, assignee_id)
+    who = assignee.name if assignee else "исполнителя"
+    log_activity(
+        db,
+        issue=issue,
+        actor=actor,
+        kind="assign",
+        body=f"Назначил: {who}",
+        commit=True,
+    )
+
+
+def log_activity(
+    db: Session,
+    *,
+    issue: Issue,
+    actor: User | None,
+    kind: str,
+    body: str = "",
+    comment_id: int | None = None,
+    commit: bool = True,
+) -> Activity:
+    item = Activity(
+        issue_id=issue.id,
+        actor_id=actor.id if actor else None,
+        kind=kind,
+        body=body[:500],
+        comment_id=comment_id,
+    )
+    db.add(item)
+    if commit:
+        db.commit()
+        db.refresh(item)
+    else:
+        db.flush()
+    return item
+
+
+def next_step_hint(*, issue: Issue, user: User) -> str | None:
+    if issue.status == IssueStatus.RESOLVED:
+        return "Задача в архиве. Обсуждение закрыто."
+    if issue.status == IssueStatus.PENDING_CONFIRM:
+        if issue.author_id == user.id:
+            return "Ваш ход: подтвердите решение или верните в работу через комментарий."
+        return "Ждём подтверждения автора задачи."
+    if issue.assignee_id is None:
+        if issue.author_id == user.id:
+            return "Назначьте исполнителя в «Настроить» — иначе задачу нельзя взять в работу."
+        return "Исполнитель ещё не назначен."
+    if issue.assignee_id == user.id:
+        if issue.status == IssueStatus.OPEN:
+            return "Ваш ход: нажмите «В работу», когда начнёте, или «Отметить выполненной»."
+        if issue.status == IssueStatus.IN_PROGRESS:
+            return "Ваш ход: когда готово — «Отметить выполненной» (автор подтвердит)."
+    if issue.author_id == user.id and issue.status == IssueStatus.IN_PROGRESS:
+        return f"В работе у {issue.assignee.name if issue.assignee else 'исполнителя'}."
+    if issue.assignee and issue.status == IssueStatus.OPEN:
+        return f"Ожидает, пока {issue.assignee.name} возьмёт в работу."
+    return None
+
+
+def resolve_mentions(text: str, members: list[User]) -> list[User]:
+    if not text or not members:
+        return []
+    by_name = {m.name.lower(): m for m in members}
+    by_email = {m.email.lower(): m for m in members}
+    # Longest names first for multi-word matches
+    names = sorted({m.name for m in members}, key=len, reverse=True)
+    found: dict[int, User] = {}
+    lower = text.lower()
+    for name in names:
+        needle = f"@{name.lower()}"
+        if needle in lower:
+            user = by_name.get(name.lower())
+            if user:
+                found[user.id] = user
+    for email, user in by_email.items():
+        if f"@{email}" in lower:
+            found[user.id] = user
+    # Also bare @FirstName token
+    for token in re.findall(r"@([\w.\-]+)", text):
+        key = token.lower()
+        if key in by_email:
+            found[by_email[key].id] = by_email[key]
+            continue
+        for m in members:
+            first = m.name.split()[0].lower() if m.name else ""
+            if key == first or key == m.name.lower():
+                found[m.id] = m
+    return list(found.values())
+
+
+def notify_mentions(
+    db: Session,
+    *,
+    issue: Issue,
+    author: User,
+    members: list[User],
+    text: str,
+) -> None:
+    for mentioned in resolve_mentions(text, members):
+        if mentioned.id == author.id:
+            continue
+        notify(
+            db,
+            user_id=mentioned.id,
+            kind="mention",
+            title=f"{author.name} упомянул вас",
+            body=f"{issue.key}: {issue.title}",
+            link=f"/projects/{issue.project_id}/issues/{issue.id}",
+        )
 
 
 def list_notifications(db: Session, user: User, *, limit: int = 20) -> list[Notification]:
@@ -240,6 +374,15 @@ def create_issue(
         board_order=max_order,
     )
     db.add(issue)
+    db.flush()
+    log_activity(
+        db,
+        issue=issue,
+        actor=author,
+        kind="created",
+        body="Создал задачу",
+        commit=False,
+    )
     db.commit()
     db.refresh(issue)
     return issue
@@ -330,7 +473,16 @@ def issues_by_status(db: Session, project: Project) -> dict[str, list[Issue]]:
     return buckets
 
 
-def update_issue_status(db: Session, issue: Issue, status: str) -> Issue:
+def update_issue_status(
+    db: Session,
+    issue: Issue,
+    status: str,
+    *,
+    actor: User | None = None,
+) -> Issue:
+    prev = issue.status
+    if prev == status:
+        return issue
     issue.status = status
     count = (
         db.query(Issue)
@@ -339,6 +491,17 @@ def update_issue_status(db: Session, issue: Issue, status: str) -> Issue:
     )
     issue.board_order = count
     db.add(issue)
+    db.flush()
+    from_label = STATUS_LABELS.get(prev, prev)
+    to_label = STATUS_LABELS.get(status, status)
+    log_activity(
+        db,
+        issue=issue,
+        actor=actor,
+        kind="status",
+        body=f"{from_label} → {to_label}",
+        commit=False,
+    )
     db.commit()
     db.refresh(issue)
     return issue
@@ -353,7 +516,7 @@ def mark_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
         raise WorkflowError("Отметить выполнение может только назначенный")
     if issue.status == IssueStatus.PENDING_CONFIRM:
         raise WorkflowError("Уже ожидает подтверждения автора")
-    return update_issue_status(db, issue, IssueStatus.PENDING_CONFIRM)
+    return update_issue_status(db, issue, IssueStatus.PENDING_CONFIRM, actor=user)
 
 
 def confirm_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
@@ -361,14 +524,36 @@ def confirm_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
         raise WorkflowError("Подтвердить может только автор задачи")
     if issue.status != IssueStatus.PENDING_CONFIRM:
         raise WorkflowError("Задача ещё не отмечена выполненной")
-    return update_issue_status(db, issue, IssueStatus.RESOLVED)
+    return update_issue_status(db, issue, IssueStatus.RESOLVED, actor=user)
 
 
-def add_comment(db: Session, *, issue: Issue, author: User, body: str) -> Comment:
+def add_comment(
+    db: Session,
+    *,
+    issue: Issue,
+    author: User,
+    body: str,
+    members: list[User] | None = None,
+) -> Comment:
     comment = Comment(issue_id=issue.id, author_id=author.id, body=body.strip())
     db.add(comment)
+    db.flush()
+    preview = body.strip()
+    if len(preview) > 120:
+        preview = preview[:117] + "…"
+    log_activity(
+        db,
+        issue=issue,
+        actor=author,
+        kind="comment",
+        body=preview or "Прикрепил фото",
+        comment_id=comment.id,
+        commit=False,
+    )
     db.commit()
     db.refresh(comment)
+    if members and body.strip():
+        notify_mentions(db, issue=issue, author=author, members=members, text=body)
     return comment
 
 
@@ -425,8 +610,15 @@ async def save_issue_images(
 
 def delete_issue(db: Session, *, issue: Issue) -> int:
     project_id = issue.project_id
+    stored = [
+        row[0]
+        for row in db.query(Attachment.stored_name)
+        .filter(Attachment.issue_id == issue.id)
+        .all()
+    ]
     db.delete(issue)
     db.commit()
+    _unlink_uploads(stored)
     return project_id
 
 
@@ -437,7 +629,43 @@ def start_issue(db: Session, *, issue: Issue, user: User) -> Issue:
         return issue
     if issue.status != IssueStatus.OPEN:
         raise WorkflowError("Нельзя взять эту задачу в работу")
-    return update_issue_status(db, issue, IssueStatus.IN_PROGRESS)
+    return update_issue_status(db, issue, IssueStatus.IN_PROGRESS, actor=user)
+
+
+def migrate_backfill_activities(db: Session) -> None:
+    """One-time: seed timeline from existing comments if activities table is empty."""
+    if db.query(Activity).first() is not None:
+        return
+    for issue in db.query(Issue).all():
+        db.add(
+            Activity(
+                issue_id=issue.id,
+                actor_id=issue.author_id,
+                kind="created",
+                body="Создал задачу",
+                created_at=issue.created_at,
+            )
+        )
+        for comment in (
+            db.query(Comment)
+            .filter(Comment.issue_id == issue.id)
+            .order_by(Comment.created_at.asc())
+            .all()
+        ):
+            preview = (comment.body or "").strip()
+            if len(preview) > 120:
+                preview = preview[:117] + "…"
+            db.add(
+                Activity(
+                    issue_id=issue.id,
+                    actor_id=comment.author_id,
+                    kind="comment",
+                    body=preview or "Прикрепил фото",
+                    comment_id=comment.id,
+                    created_at=comment.created_at,
+                )
+            )
+    db.commit()
 
 
 def migrate_legacy_statuses(db: Session) -> None:
