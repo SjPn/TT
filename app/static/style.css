@@ -596,13 +596,6 @@ label {
   grid-template-columns: minmax(0, 1fr);
   max-width: 760px;
 }
-.detail-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 0.35rem;
-}
 .detail-labels { margin: 0 0 1rem; }
 .detail-main, .detail-side, .auth-card, .edit-form {
   background: var(--surface);
