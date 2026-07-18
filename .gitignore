@@ -12,8 +12,11 @@ data/
 *.db
 *.db-*
 
-# Docs (keep local only)
+# Docs (keep most local; ship handoff + README for other machines / AI)
 *.md
+!AGENTS.md
+!README.md
+!DEPLOY.md
 docs/
 
 # Python
