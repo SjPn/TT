@@ -37,10 +37,6 @@
         </select>
       </label>
     </div>
-    <label>Метки
-      <input name="labels" value="{{ issue.labels }}" placeholder="ui, backend">
-    </label>
-    <p class="muted meta">Статус меняется через кнопку выполнения и подтверждение автора — не здесь.</p>
     <footer class="edit-actions">
       <button class="btn btn-primary" type="submit">Сохранить</button>
       <a class="btn btn-ghost" href="/projects/{{ project.id }}/issues/{{ issue.id }}">Отмена</a>

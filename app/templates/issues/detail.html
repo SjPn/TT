@@ -57,14 +57,6 @@
       {% endif %}
     </div>
 
-    {% if issue.label_list %}
-    <div class="label-row detail-labels">
-      {% for label in issue.label_list %}
-      <span class="label">{{ label }}</span>
-      {% endfor %}
-    </div>
-    {% endif %}
-
     <article class="prose">
       {% if issue.description %}
       {{ issue.description | md | safe }}

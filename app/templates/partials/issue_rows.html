@@ -3,13 +3,6 @@
 <tr class="row-{{ issue.status }}">
   <td>
     <a class="issue-title" href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.title }}</a>
-    {% if issue.label_list %}
-    <div class="label-row">
-      {% for label in issue.label_list %}
-      <span class="label">{{ label }}</span>
-      {% endfor %}
-    </div>
-    {% endif %}
   </td>
   <td><span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span></td>
   <td><span class="pill status-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span></td>
