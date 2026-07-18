@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Уведомления · TaskTracker{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Уведомления</h1>
+  </div>
+  <form method="post" action="/notifications/read-all">
+    <button class="btn btn-secondary" type="submit">Прочитать все</button>
+  </form>
+</div>
+
+{% if notifications %}
+<ul class="notif-list">
+  {% for n in notifications %}
+  <li class="{% if not n.is_read %}unread{% endif %}">
+    <a href="/notifications/{{ n.id }}/open">
+      <strong>{{ n.title }}</strong>
+      {% if n.body %}<span class="muted">{{ n.body }}</span>{% endif %}
+      <time class="muted">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at else '' }}</time>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty"><p class="muted">Пока нет уведомлений.</p></div>
+{% endif %}
+{% endblock %}

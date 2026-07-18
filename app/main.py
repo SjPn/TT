@@ -9,8 +9,13 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.deps import get_current_user
-from app.routers import auth, issues, projects
-from app.services import migrate_attachment_comment_id, migrate_legacy_statuses
+from app.routers import auth, issues, notifications, projects
+from app.services import (
+    list_notifications,
+    migrate_attachment_comment_id,
+    migrate_legacy_statuses,
+    unread_notification_count,
+)
 
 DATA_DIR = Path(settings.data_dir)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -28,11 +33,13 @@ class AuthRedirectMiddleware(BaseHTTPMiddleware):
         db = SessionLocal()
         try:
             user = get_current_user(request, db)
+            if user is None:
+                return RedirectResponse("/login", status_code=303)
+            request.state.unread_count = unread_notification_count(db, user)
+            request.state.notifications = list_notifications(db, user, limit=8)
         finally:
             db.close()
 
-        if user is None:
-            return RedirectResponse("/login", status_code=303)
         return await call_next(request)
 
 
@@ -56,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(projects.router)
     app.include_router(issues.router)
+    app.include_router(notifications.router)
 
     @app.get("/health")
     def health():

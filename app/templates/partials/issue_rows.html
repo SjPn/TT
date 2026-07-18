@@ -1,7 +1,6 @@
 {% if issues %}
 {% for issue in issues %}
 <tr>
-  <td class="mono"><a href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.key }}</a></td>
   <td>
     <a class="issue-title" href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.title }}</a>
     {% if issue.label_list %}
@@ -19,7 +18,7 @@
 {% endfor %}
 {% else %}
 <tr>
-  <td colspan="5" class="empty-cell">
+  <td colspan="4" class="empty-cell">
     {% if view == 'archive' %}
     Архив пуст.
     {% else %}

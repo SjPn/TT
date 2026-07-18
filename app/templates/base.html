@@ -23,6 +23,30 @@
       </nav>
       {% endif %}
       <div class="topbar-right">
+        <details class="notif-menu">
+          <summary class="btn btn-ghost btn-sm notif-btn">
+            Уведомления{% if request.state.unread_count is defined and request.state.unread_count %}
+            <span class="notif-badge">{{ request.state.unread_count }}</span>{% endif %}
+          </summary>
+          <div class="notif-panel">
+            {% if request.state.notifications is defined and request.state.notifications %}
+              {% for n in request.state.notifications %}
+              <a class="notif-item {% if not n.is_read %}unread{% endif %}" href="/notifications/{{ n.id }}/open">
+                <strong>{{ n.title }}</strong>
+                {% if n.body %}<span class="muted">{{ n.body }}</span>{% endif %}
+              </a>
+              {% endfor %}
+            {% else %}
+              <p class="muted notif-empty">Нет уведомлений</p>
+            {% endif %}
+            <div class="notif-foot">
+              <a href="/notifications">Все</a>
+              <form method="post" action="/notifications/read-all">
+                <button type="submit" class="btn btn-ghost btn-xs">Прочитать все</button>
+              </form>
+            </div>
+          </div>
+        </details>
         <span class="user-chip">{{ user.name }}</span>
         <form method="post" action="/logout">
           <button type="submit" class="btn btn-ghost btn-sm">Log out</button>

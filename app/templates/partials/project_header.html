@@ -20,6 +20,14 @@
     <button class="btn btn-secondary" type="button" onclick="document.getElementById('members').showModal()">
       Members
     </button>
+    {% if user.id == project.owner_id %}
+    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('edit-project').showModal()">
+      Edit
+    </button>
+    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('delete-project').showModal()">
+      Delete
+    </button>
+    {% endif %}
     {% if view != 'archive' %}
     <button class="btn btn-primary" type="button" onclick="document.getElementById('new-issue').showModal()">
       New issue <kbd>N</kbd>
@@ -56,3 +64,37 @@
     </footer>
   </form>
 </dialog>
+
+{% if user.id == project.owner_id %}
+<dialog id="edit-project" class="modal">
+  <form method="post" action="/projects/{{ project.id }}/edit">
+    <header>
+      <h2>Edit project</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+    </header>
+    <label>Name
+      <input name="name" value="{{ project.name }}" required autofocus>
+    </label>
+    <label>Description
+      <textarea name="description" rows="3">{{ project.description }}</textarea>
+    </label>
+    <footer>
+      <button class="btn btn-primary" type="submit">Save</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="delete-project" class="modal">
+  <form method="post" action="/projects/{{ project.id }}/delete">
+    <header>
+      <h2>Delete project?</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+    </header>
+    <p>Удалить проект <strong>{{ project.name }}</strong> и все его задачи? Это нельзя отменить.</p>
+    <footer class="edit-actions">
+      <button class="btn btn-danger" type="submit">Delete</button>
+      <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+    </footer>
+  </form>
+</dialog>
+{% endif %}

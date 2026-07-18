@@ -63,12 +63,17 @@ def get_project_or_404(db: Session, project_id: int) -> Project:
     return project
 
 
-def require_project_access(
-    db: Session, user: User, project_id: int
-) -> Project:
+def require_project_access(db: Session, user: User, project_id: int) -> Project:
     project = get_project_or_404(db, project_id)
     if not user_can_access_project(db, user, project):
         raise HTTPException(status_code=403, detail="No access to this project")
+    return project
+
+
+def require_project_owner(db: Session, user: User, project_id: int) -> Project:
+    project = require_project_access(db, user, project_id)
+    if project.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the project owner can do this")
     return project
 
 

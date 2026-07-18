@@ -3,6 +3,7 @@ from enum import StrEnum
 from typing import Optional
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Integer,
@@ -68,6 +69,9 @@ class User(Base):
         back_populates="author", foreign_keys="Issue.author_id"
     )
     comments: Mapped[list["Comment"]] = relationship(back_populates="author")
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Project(Base):
@@ -184,3 +188,18 @@ class Attachment(Base):
 
     issue: Mapped["Issue"] = relationship(back_populates="attachments")
     comment: Mapped[Optional["Comment"]] = relationship(back_populates="attachments")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(32), default="info")
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(String(500), default="")
+    link: Mapped[str] = mapped_column(String(300), default="")
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="notifications")

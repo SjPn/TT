@@ -27,6 +27,7 @@ from app.services import (
     list_issues,
     mark_issue_done,
     normalize_labels,
+    notify_assignment,
     save_images,
     save_issue_images,
     update_issue_status,
@@ -123,6 +124,8 @@ async def create_issue_route(
     )
     if photos:
         await save_issue_images(db, issue=issue, files=list(photos))
+    if assignee:
+        notify_assignment(db, issue=issue, assignee_id=assignee, actor=user)
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
 
 
@@ -229,9 +232,13 @@ def update_issue(
     issue.description = description.strip()
     issue.priority = priority
     issue.labels = normalize_labels(labels)
-    issue.assignee_id = int(assignee_id) if assignee_id.strip().isdigit() else None
+    new_assignee = int(assignee_id) if assignee_id.strip().isdigit() else None
+    prev_assignee = issue.assignee_id
+    issue.assignee_id = new_assignee
     db.add(issue)
     db.commit()
+    if new_assignee and new_assignee != prev_assignee:
+        notify_assignment(db, issue=issue, assignee_id=new_assignee, actor=user)
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
 
 

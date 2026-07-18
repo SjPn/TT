@@ -16,6 +16,7 @@ from app.models import (
     Comment,
     Issue,
     IssueStatus,
+    Notification,
     Priority,
     Project,
     ProjectMember,
@@ -95,7 +96,105 @@ def add_project_member(db: Session, *, project: Project, email: str) -> User:
         raise MemberError("User is already a project member")
     db.add(ProjectMember(project_id=project.id, user_id=user.id, role="member"))
     db.commit()
+    notify(
+        db,
+        user_id=user.id,
+        kind="project_added",
+        title=f"Вас добавили в проект {project.name}",
+        body=f"Ключ проекта: {project.key}",
+        link=f"/projects/{project.id}",
+    )
     return user
+
+
+def update_project(
+    db: Session,
+    *,
+    project: Project,
+    name: str,
+    description: str = "",
+) -> Project:
+    project.name = name.strip()
+    project.description = description.strip()
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def delete_project(db: Session, *, project: Project) -> None:
+    db.delete(project)
+    db.commit()
+
+
+def notify(
+    db: Session,
+    *,
+    user_id: int,
+    kind: str,
+    title: str,
+    body: str = "",
+    link: str = "",
+) -> Notification:
+    item = Notification(
+        user_id=user_id,
+        kind=kind,
+        title=title,
+        body=body,
+        link=link,
+        is_read=False,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def notify_assignment(
+    db: Session,
+    *,
+    issue: Issue,
+    assignee_id: int | None,
+    actor: User,
+) -> None:
+    if not assignee_id or assignee_id == actor.id:
+        return
+    notify(
+        db,
+        user_id=assignee_id,
+        kind="issue_assigned",
+        title=f"Вам назначена задача: {issue.title}",
+        body=f"{issue.key} · назначил {actor.name}",
+        link=f"/projects/{issue.project_id}/issues/{issue.id}",
+    )
+
+
+def list_notifications(db: Session, user: User, *, limit: int = 20) -> list[Notification]:
+    return (
+        db.query(Notification)
+        .filter(Notification.user_id == user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def unread_notification_count(db: Session, user: User) -> int:
+    return (
+        db.query(Notification)
+        .filter(Notification.user_id == user.id, Notification.is_read.is_(False))
+        .count()
+    )
+
+
+def mark_notifications_read(db: Session, user: User, notification_id: int | None = None) -> None:
+    q = db.query(Notification).filter(
+        Notification.user_id == user.id, Notification.is_read.is_(False)
+    )
+    if notification_id is not None:
+        q = q.filter(Notification.id == notification_id)
+    q.update({Notification.is_read: True}, synchronize_session=False)
+    db.commit()
 
 
 def next_issue_number(db: Session, project: Project) -> int:
