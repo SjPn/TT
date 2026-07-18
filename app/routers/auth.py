@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi import APIRouter, Depends, Form, Query, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth import create_session_token, create_user, get_user_by_email, verify_password
+from app.auth import (
+    create_session_token,
+    create_user,
+    get_user_by_email,
+    update_user_profile,
+    verify_password,
+)
 from app.config import settings
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_user
 from app.models import User
 from app.templating import templates
 
@@ -102,6 +108,79 @@ def register_submit(
     redirect = RedirectResponse("/", status_code=303)
     _set_session_cookie(redirect, request, user.id)
     return redirect
+
+
+@router.get("/profile", response_class=HTMLResponse)
+def profile_page(
+    request: Request,
+    flash: str | None = Query(None),
+    user: User = Depends(require_user),
+):
+    return templates.TemplateResponse(
+        request,
+        "auth/profile.html",
+        {
+            "user": user,
+            "error": None,
+            "name": user.name,
+            "email": user.email,
+            "flash": flash,
+        },
+    )
+
+
+@router.post("/profile", response_class=HTMLResponse)
+def profile_save(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(""),
+    password_confirm: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    name = name.strip()
+    email = email.strip()
+    password = password.strip()
+    password_confirm = password_confirm.strip()
+
+    def fail(msg: str):
+        return templates.TemplateResponse(
+            request,
+            "auth/profile.html",
+            {
+                "user": user,
+                "error": msg,
+                "name": name,
+                "email": email,
+                "flash": None,
+            },
+            status_code=400,
+        )
+
+    if not name:
+        return fail("Укажите имя")
+    if not email or "@" not in email:
+        return fail("Укажите корректный email для входа")
+
+    other = get_user_by_email(db, email)
+    if other and other.id != user.id:
+        return fail("Этот email уже занят")
+
+    if password or password_confirm:
+        if len(password) < 6:
+            return fail("Новый пароль не короче 6 символов")
+        if password != password_confirm:
+            return fail("Пароли не совпадают")
+
+    update_user_profile(
+        db,
+        user=user,
+        name=name,
+        email=email,
+        password=password or None,
+    )
+    return RedirectResponse("/profile?flash=profile", status_code=303)
 
 
 @router.post("/logout")

@@ -243,6 +243,63 @@ def test_project_search(client: TestClient):
     assert "Beta Web" not in r.text
 
 
+def test_profile_update(client: TestClient):
+    _register(client, "old@ex.com", "OldName")
+    page = client.get("/profile")
+    assert page.status_code == 200
+    assert "Профиль" in page.text
+    assert 'value="OldName"' in page.text
+
+    r = client.post(
+        "/profile",
+        data={
+            "name": "NewName",
+            "email": "new@ex.com",
+            "password": "",
+            "password_confirm": "",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "/profile" in r.headers["location"]
+
+    page = client.get("/profile")
+    assert "NewName" in page.text
+    assert "new@ex.com" in page.text
+
+    bad = client.post(
+        "/profile",
+        data={
+            "name": "NewName",
+            "email": "new@ex.com",
+            "password": "abcdef",
+            "password_confirm": "zzzzzz",
+        },
+    )
+    assert bad.status_code == 400
+    assert "не совпадают" in bad.text
+
+    ok = client.post(
+        "/profile",
+        data={
+            "name": "NewName",
+            "email": "new@ex.com",
+            "password": "secret9",
+            "password_confirm": "secret9",
+        },
+        follow_redirects=False,
+    )
+    assert ok.status_code == 303
+
+    client.post("/logout", follow_redirects=False)
+    login = client.post(
+        "/login",
+        data={"email": "new@ex.com", "password": "secret9"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+
+
 def test_mentions_and_timeline(client: TestClient):
     _register(client, "ann@ex.com", "Анна")
     client.post("/projects", data={"name": "M", "key": "MM", "description": ""})

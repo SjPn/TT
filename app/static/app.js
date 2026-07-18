@@ -30,6 +30,7 @@ const FLASH_MESSAGES = {
   project: "Проект создан",
   project_saved: "Проект сохранён",
   project_deleted: "Проект удалён",
+  profile: "Профиль сохранён",
 };
 
 function showToast(text) {

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Профиль · TaskTracker{% endblock %}
+{% block content %}
+<div class="edit-page">
+  <div class="page-head">
+    <div>
+      <h1>Профиль</h1>
+      <p class="muted">Имя, логин для входа и пароль</p>
+    </div>
+    <a class="btn btn-ghost" href="/">К проектам</a>
+  </div>
+
+  {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+  <form method="post" action="/profile" class="edit-form">
+    <label>Имя
+      <input name="name" value="{{ name }}" required autofocus maxlength="120">
+    </label>
+    <label>Логин (email)
+      <span class="hint">Используется для входа</span>
+      <input type="email" name="email" value="{{ email }}" required maxlength="255">
+    </label>
+    <div class="form-grid">
+      <label>Новый пароль
+        <span class="hint">Оставьте пустым, если не меняете</span>
+        <input type="password" name="password" minlength="6" autocomplete="new-password">
+      </label>
+      <label>Подтверждение пароля
+        <input type="password" name="password_confirm" minlength="6" autocomplete="new-password">
+      </label>
+    </div>
+    <footer class="edit-actions">
+      <button class="btn btn-primary" type="submit">Сохранить</button>
+      <a class="btn btn-ghost" href="/">Отмена</a>
+    </footer>
+  </form>
+</div>
+{% endblock %}
