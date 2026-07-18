@@ -2,7 +2,10 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c7a7e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>{% block title %}TaskTracker{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,7 +13,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
-<body{% if flash is defined and flash %} data-flash="{{ flash }}"{% endif %}>
+<body{% if flash is defined and flash %} data-flash="{{ flash }}"{% endif %}{% if project is defined and project %} class="has-project"{% endif %}>
   {% if user is defined and user %}
   <header class="topbar">
     <div class="topbar-inner">
@@ -18,14 +21,18 @@
       {% if project is defined and project %}
       <nav class="crumbs">
         <a href="/">Проекты</a>
-        <span>/</span>
-        <a href="/projects/{{ project.id }}">{{ project.name }}</a>
+        <span class="crumb-sep">/</span>
+        <a class="crumb-project" href="/projects/{{ project.id }}">{{ project.name }}</a>
       </nav>
       {% endif %}
       <div class="topbar-right">
         <details class="notif-menu">
-          <summary class="btn btn-ghost btn-sm notif-btn {% if request.state.unread_count %}has-unread{% endif %}">
-            Уведомления{% if request.state.unread_count is defined and request.state.unread_count %}
+          <summary class="btn btn-ghost btn-sm notif-btn {% if request.state.unread_count %}has-unread{% endif %}" aria-label="Уведомления">
+            <svg class="icon-bell" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5"/>
+              <path d="M9.5 17a2.5 2.5 0 0 0 5 0"/>
+            </svg>
+            <span class="notif-label">Уведомления</span>{% if request.state.unread_count is defined and request.state.unread_count %}
             <span class="notif-badge">{{ request.state.unread_count }}</span>{% endif %}
           </summary>
           <div class="notif-panel">
@@ -47,9 +54,12 @@
             </div>
           </div>
         </details>
-        <a class="user-chip" href="/profile" title="Настройки профиля">{{ user.name }}</a>
-        <form method="post" action="/logout">
-          <button type="submit" class="btn btn-ghost btn-sm">Выйти</button>
+        <a class="user-chip" href="/profile" title="Настройки профиля">
+          <span class="avatar avatar-sm user-chip-avatar">{{ user.initials }}</span>
+          <span class="user-chip-name">{{ user.name }}</span>
+        </a>
+        <form class="logout-form" method="post" action="/logout">
+          <button type="submit" class="btn btn-ghost btn-sm logout-btn">Выйти</button>
         </form>
       </div>
     </div>

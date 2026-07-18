@@ -1,12 +1,12 @@
 {% if issues %}
 {% for issue in issues %}
 <tr class="row-{{ issue.status }}">
-  <td>
+  <td data-label="Название">
     <a class="issue-title" href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.title }}</a>
   </td>
-  <td><span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span></td>
-  <td><span class="pill status-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span></td>
-  <td>
+  <td data-label="Приоритет"><span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span></td>
+  <td data-label="Статус"><span class="pill status-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span></td>
+  <td data-label="Исполнитель">
     {% if issue.assignee %}
     <span class="avatar-pill"><span class="avatar avatar-sm">{{ issue.assignee.initials }}</span>{{ issue.assignee.name }}</span>
     {% else %}
@@ -23,9 +23,9 @@
     {% elif filter_mine %}
     Нет задач, назначенных вам.
     {% elif q or filter_status or filter_priority %}
-    Ничего не найдено. Сбросьте фильтры или создайте задачу (<kbd>C</kbd>).
+    Ничего не найдено. Сбросьте фильтры или создайте задачу.
     {% else %}
-    Пока нет задач. Нажмите <kbd>C</kbd> или «Новая задача».
+    Пока нет задач. Нажмите «Новая задача».
     {% endif %}
   </td>
 </tr>

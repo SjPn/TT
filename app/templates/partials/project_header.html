@@ -27,12 +27,15 @@
       </div>
     </details>
     {% if view != 'archive' %}
-    <button class="btn btn-primary" type="button" onclick="document.getElementById('new-issue').showModal()">
-      Новая задача <kbd>C</kbd>
+    <button class="btn btn-primary new-issue-btn" type="button" onclick="document.getElementById('new-issue').showModal()">
+      Новая задача <kbd class="hide-mobile">C</kbd>
     </button>
     {% endif %}
   </div>
 </div>
+{% if view != 'archive' %}
+<button class="fab-new" type="button" onclick="document.getElementById('new-issue').showModal()" aria-label="Новая задача">+</button>
+{% endif %}
 
 {% if member_ok %}<p class="form-ok">{{ member_ok }}</p>{% endif %}
 {% if member_error %}<p class="form-error">{{ member_error }}</p>{% endif %}
