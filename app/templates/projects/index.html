@@ -23,7 +23,6 @@
   {% for p in projects %}
   <li>
     <a class="project-tile" href="/projects/{{ p.id }}">
-      <span class="mono key">{{ p.key }}</span>
       <strong>{{ p.name }}</strong>
       {% if p.description %}<span class="muted clamp">{{ p.description }}</span>{% endif %}
     </a>
@@ -44,9 +43,6 @@
     </header>
     <label>Название
       <input name="name" required placeholder="Мобильное приложение" autofocus>
-    </label>
-    <label>Ключ <span class="hint">(необязательно, напр. MOB)</span>
-      <input name="key" maxlength="8" placeholder="Авто из названия">
     </label>
     <label>Описание
       <textarea name="description" rows="3" placeholder="О чём этот проект?"></textarea>
