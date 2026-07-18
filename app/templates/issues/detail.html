@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ issue.key }} · {{ issue.title }}{% endblock %}
+{% block content %}
+<div class="detail-layout detail-layout-single">
+  <section class="detail-main">
+    <div class="detail-top">
+      <div>
+        <p class="eyebrow mono">
+          <a href="/projects/{{ project.id }}">{{ project.key }}</a> · {{ issue.key }}
+          {% if issue.is_archived %}· Архив{% endif %}
+        </p>
+        <h1>{{ issue.title }}</h1>
+      </div>
+      <div class="detail-actions">
+        {% if can_mark_done %}
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/mark-done">
+          <button class="btn btn-primary" type="submit">Отметить выполненной</button>
+        </form>
+        {% endif %}
+        {% if can_confirm %}
+        <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/confirm">
+          <button class="btn btn-primary" type="submit">Подтвердить решение</button>
+        </form>
+        {% endif %}
+        {% if user.id == issue.author_id and not issue.is_archived %}
+        <a class="btn btn-secondary" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Настроить</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="detail-badges">
+      <span class="pill priority-{{ issue.priority }}">{{ priority_labels[issue.priority] }}</span>
+      <span class="pill status-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span>
+      {% if issue.assignee %}
+      <span class="pill">{{ issue.assignee.name }}</span>
+      {% endif %}
+    </div>
+
+    {% if issue.status == 'pending_confirm' %}
+    <p class="form-ok">Исполнитель отметил задачу выполненной. Ждёт подтверждения автора.</p>
+    {% endif %}
+    {% if issue.is_archived %}
+    <p class="form-ok">Задача решена и находится в архиве.</p>
+    {% endif %}
+
+    {% if issue.label_list %}
+    <div class="label-row detail-labels">
+      {% for label in issue.label_list %}
+      <span class="label">{{ label }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <article class="prose">
+      {% if issue.description %}
+      {{ issue.description | md | safe }}
+      {% else %}
+      <p class="muted">No description.</p>
+      {% endif %}
+    </article>
+
+    {% if issue.attachments %}
+    <section class="photo-gallery">
+      <h2>Photos</h2>
+      <div class="photo-grid">
+        {% for att in issue.attachments %}
+        <a href="/uploads/{{ att.stored_name }}" target="_blank" rel="noopener">
+          <img src="/uploads/{{ att.stored_name }}" alt="{{ att.filename }}">
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <p class="meta muted">
+      Created by {{ issue.author.name }}
+      {% if issue.created_at %}· {{ issue.created_at.strftime('%Y-%m-%d') }}{% endif %}
+    </p>
+
+    <section class="comments">
+      <h2>Comments</h2>
+      {% for c in issue.comments %}
+      <article class="comment">
+        <header>
+          <strong>{{ c.author.name }}</strong>
+          <time class="muted">{{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '' }}</time>
+        </header>
+        {% if c.body and c.body.strip() %}
+        <div class="prose">{{ c.body | md | safe }}</div>
+        {% endif %}
+        {% if c.attachments %}
+        <div class="photo-grid comment-photos">
+          {% for att in c.attachments %}
+          <a href="/uploads/{{ att.stored_name }}" target="_blank" rel="noopener">
+            <img src="/uploads/{{ att.stored_name }}" alt="{{ att.filename }}">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="muted">No comments yet.</p>
+      {% endfor %}
+
+      {% if not issue.is_archived %}
+      <form class="comment-form" method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments" enctype="multipart/form-data">
+        <label>Comment
+          <textarea name="body" rows="3" placeholder="Text…"></textarea>
+        </label>
+        <label>Photos
+          <input type="file" name="photos" accept="image/*" multiple>
+        </label>
+        <button class="btn btn-secondary" type="submit">Send</button>
+      </form>
+      {% endif %}
+    </section>
+  </section>
+</div>
+{% endblock %}

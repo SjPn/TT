@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Projects · TaskTracker{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div></div>
+  <button class="btn btn-primary" type="button" onclick="document.getElementById('new-project').showModal()">New project</button>
+</div>
+
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+{% if projects %}
+<ul class="project-grid">
+  {% for p in projects %}
+  <li>
+    <a class="project-tile" href="/projects/{{ p.id }}">
+      <span class="mono key">{{ p.key }}</span>
+      <strong>{{ p.name }}</strong>
+      {% if p.description %}<span class="muted clamp">{{ p.description }}</span>{% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty">
+  <p class="muted">No projects yet.</p>
+</div>
+{% endif %}
+
+<dialog id="new-project" class="modal">
+  <form method="post" action="/projects">
+    <header>
+      <h2>New project</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+    </header>
+    <label>Name
+      <input name="name" required placeholder="Mobile app" autofocus>
+    </label>
+    <label>Key <span class="hint">(optional, e.g. MOB)</span>
+      <input name="key" maxlength="8" placeholder="Auto from name">
+    </label>
+    <label>Description
+      <textarea name="description" rows="3" placeholder="What is this project about?"></textarea>
+    </label>
+    <footer>
+      <button class="btn btn-primary" type="submit">Create</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}

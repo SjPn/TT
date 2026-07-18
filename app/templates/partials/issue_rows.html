@@ -1,0 +1,30 @@
+{% if issues %}
+{% for issue in issues %}
+<tr>
+  <td class="mono"><a href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.key }}</a></td>
+  <td>
+    <a class="issue-title" href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.title }}</a>
+    {% if issue.label_list %}
+    <div class="label-row">
+      {% for label in issue.label_list %}
+      <span class="label">{{ label }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </td>
+  <td><span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span></td>
+  <td>{{ status_labels.get(issue.status, issue.status) }}</td>
+  <td>{{ issue.assignee.name if issue.assignee else '—' }}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+  <td colspan="5" class="empty-cell">
+    {% if view == 'archive' %}
+    Архив пуст.
+    {% else %}
+    No issues match. Press <kbd>N</kbd> to create one.
+    {% endif %}
+  </td>
+</tr>
+{% endif %}

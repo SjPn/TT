@@ -1,0 +1,36 @@
+{% for status in status_order %}
+<section class="board-column" data-status="{{ status }}">
+  <header>
+    <h2>{{ status_labels[status] }}</h2>
+    <span class="count">{{ columns[status]|length }}</span>
+  </header>
+  <div class="column-body">
+    {% for issue in columns[status] %}
+    <article class="card-issue">
+      <a href="/projects/{{ project.id }}/issues/{{ issue.id }}">
+        <span class="mono key">{{ issue.key }}</span>
+        <strong>{{ issue.title }}</strong>
+      </a>
+      <div class="card-meta">
+        <span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span>
+        {% if issue.assignee %}<span class="muted">{{ issue.assignee.name }}</span>{% endif %}
+      </div>
+      {% if status in ['open', 'in_progress'] %}
+      <div class="status-moves">
+        {% for s in ['open', 'in_progress'] if s != status %}
+        <form hx-post="/projects/{{ project.id }}/issues/{{ issue.id }}/status"
+              hx-target="#board"
+              hx-swap="innerHTML">
+          <input type="hidden" name="status" value="{{ s }}">
+          <button type="submit" class="btn btn-ghost btn-xs">→ {{ status_labels[s] }}</button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% else %}
+    <p class="column-empty">Empty</p>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}

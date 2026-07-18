@@ -1,0 +1,344 @@
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+
+from fastapi import UploadFile
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
+
+from app.auth import get_user_by_email
+from app.config import settings
+from app.deps import slugify_key
+from app.models import (
+    Attachment,
+    BOARD_STATUSES,
+    Comment,
+    Issue,
+    IssueStatus,
+    Priority,
+    Project,
+    ProjectMember,
+    User,
+)
+
+UPLOAD_DIR = Path(settings.data_dir) / "uploads"
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+}
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+class MemberError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+class WorkflowError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+def unique_project_key(db: Session, base: str) -> str:
+    key = base[:8]
+    candidate = key
+    n = 2
+    while db.query(Project).filter(Project.key == candidate).first():
+        suffix = str(n)
+        candidate = f"{key[: 8 - len(suffix)]}{suffix}"
+        n += 1
+    return candidate
+
+
+def create_project(
+    db: Session,
+    *,
+    owner: User,
+    name: str,
+    description: str = "",
+    key: str | None = None,
+) -> Project:
+    base = (key or slugify_key(name)).upper()[:8]
+    project = Project(
+        key=unique_project_key(db, base),
+        name=name.strip(),
+        description=description.strip(),
+        owner_id=owner.id,
+        issue_counter=0,
+    )
+    db.add(project)
+    db.flush()
+    db.add(ProjectMember(project_id=project.id, user_id=owner.id, role="owner"))
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def add_project_member(db: Session, *, project: Project, email: str) -> User:
+    user = get_user_by_email(db, email)
+    if not user:
+        raise MemberError("No registered user with that email")
+    if user.id == project.owner_id:
+        raise MemberError("That user is already the project owner")
+    existing = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project.id, ProjectMember.user_id == user.id)
+        .first()
+    )
+    if existing:
+        raise MemberError("User is already a project member")
+    db.add(ProjectMember(project_id=project.id, user_id=user.id, role="member"))
+    db.commit()
+    return user
+
+
+def next_issue_number(db: Session, project: Project) -> int:
+    project.issue_counter += 1
+    db.add(project)
+    return project.issue_counter
+
+
+def create_issue(
+    db: Session,
+    *,
+    project: Project,
+    author: User,
+    title: str,
+    description: str = "",
+    priority: str = Priority.P3,
+    status: str = IssueStatus.OPEN,
+    labels: str = "",
+    assignee_id: int | None = None,
+) -> Issue:
+    number = next_issue_number(db, project)
+    max_order = (
+        db.query(Issue)
+        .filter(Issue.project_id == project.id, Issue.status == status)
+        .count()
+    )
+    issue = Issue(
+        project_id=project.id,
+        number=number,
+        title=title.strip(),
+        description=description.strip(),
+        issue_type="task",
+        priority=priority,
+        status=status,
+        labels=normalize_labels(labels),
+        author_id=author.id,
+        assignee_id=assignee_id,
+        board_order=max_order,
+    )
+    db.add(issue)
+    db.commit()
+    db.refresh(issue)
+    return issue
+
+
+def normalize_labels(raw: str) -> str:
+    parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
+    seen: set[str] = set()
+    result: list[str] = []
+    for part in parts:
+        key = part.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(part)
+    return ", ".join(result)
+
+
+def list_issues(
+    db: Session,
+    project: Project,
+    *,
+    q: str | None = None,
+    status: str | None = None,
+    priority: str | None = None,
+    assignee_id: int | None = None,
+    archived: bool = False,
+) -> list[Issue]:
+    query = (
+        db.query(Issue)
+        .options(
+            joinedload(Issue.assignee),
+            joinedload(Issue.author),
+            joinedload(Issue.attachments),
+        )
+        .filter(Issue.project_id == project.id)
+    )
+    if archived:
+        query = query.filter(Issue.status == IssueStatus.RESOLVED)
+    elif status:
+        query = query.filter(Issue.status == status)
+    else:
+        query = query.filter(Issue.status != IssueStatus.RESOLVED)
+
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                Issue.title.ilike(like),
+                Issue.description.ilike(like),
+                Issue.labels.ilike(like),
+            )
+        )
+    if priority:
+        query = query.filter(Issue.priority == priority)
+    if assignee_id:
+        query = query.filter(Issue.assignee_id == assignee_id)
+
+    priority_rank = {
+        Priority.P1: 0,
+        Priority.P2: 1,
+        Priority.P3: 2,
+        Priority.P4: 3,
+    }
+    issues = query.all()
+    issues.sort(
+        key=lambda i: (
+            priority_rank.get(i.priority, 9),
+            -i.number,
+        )
+    )
+    return issues
+
+
+def issues_by_status(db: Session, project: Project) -> dict[str, list[Issue]]:
+    issues = (
+        db.query(Issue)
+        .options(joinedload(Issue.assignee))
+        .filter(
+            Issue.project_id == project.id,
+            Issue.status.in_([s.value for s in BOARD_STATUSES]),
+        )
+        .order_by(Issue.board_order.asc(), Issue.number.desc())
+        .all()
+    )
+    buckets: dict[str, list[Issue]] = {s.value: [] for s in BOARD_STATUSES}
+    for issue in issues:
+        buckets.setdefault(issue.status, []).append(issue)
+    return buckets
+
+
+def update_issue_status(db: Session, issue: Issue, status: str) -> Issue:
+    issue.status = status
+    count = (
+        db.query(Issue)
+        .filter(Issue.project_id == issue.project_id, Issue.status == status)
+        .count()
+    )
+    issue.board_order = count
+    db.add(issue)
+    db.commit()
+    db.refresh(issue)
+    return issue
+
+
+def mark_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
+    if issue.status == IssueStatus.RESOLVED:
+        raise WorkflowError("Задача уже в архиве")
+    if issue.assignee_id is None:
+        raise WorkflowError("Сначала назначьте исполнителя")
+    if issue.assignee_id != user.id:
+        raise WorkflowError("Отметить выполнение может только назначенный")
+    if issue.status == IssueStatus.PENDING_CONFIRM:
+        raise WorkflowError("Уже ожидает подтверждения автора")
+    return update_issue_status(db, issue, IssueStatus.PENDING_CONFIRM)
+
+
+def confirm_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
+    if issue.author_id != user.id:
+        raise WorkflowError("Подтвердить может только автор задачи")
+    if issue.status != IssueStatus.PENDING_CONFIRM:
+        raise WorkflowError("Задача ещё не отмечена выполненной")
+    return update_issue_status(db, issue, IssueStatus.RESOLVED)
+
+
+def add_comment(db: Session, *, issue: Issue, author: User, body: str) -> Comment:
+    comment = Comment(issue_id=issue.id, author_id=author.id, body=body.strip())
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+async def save_images(
+    db: Session,
+    *,
+    issue: Issue,
+    files: list[UploadFile],
+    comment: Comment | None = None,
+) -> list[Attachment]:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    saved: list[Attachment] = []
+    for upload in files:
+        if not upload or not upload.filename:
+            continue
+        content_type = (upload.content_type or "").lower()
+        if content_type not in ALLOWED_IMAGE_TYPES:
+            continue
+        data = await upload.read()
+        if not data or len(data) > MAX_IMAGE_BYTES:
+            continue
+        ext = Path(upload.filename).suffix.lower()
+        if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+            ext = {
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/png": ".png",
+                "image/gif": ".gif",
+                "image/webp": ".webp",
+            }.get(content_type, ".jpg")
+        stored = f"{uuid.uuid4().hex}{ext}"
+        (UPLOAD_DIR / stored).write_bytes(data)
+        att = Attachment(
+            issue_id=issue.id,
+            comment_id=comment.id if comment else None,
+            filename=upload.filename,
+            stored_name=stored,
+            content_type=content_type,
+        )
+        db.add(att)
+        saved.append(att)
+    if saved:
+        db.commit()
+        for att in saved:
+            db.refresh(att)
+    return saved
+
+
+async def save_issue_images(
+    db: Session, *, issue: Issue, files: list[UploadFile]
+) -> list[Attachment]:
+    return await save_images(db, issue=issue, files=files)
+
+
+def migrate_legacy_statuses(db: Session) -> None:
+    """Map old 'done' status to resolved archive."""
+    updated = (
+        db.query(Issue)
+        .filter(Issue.status == "done")
+        .update({Issue.status: IssueStatus.RESOLVED}, synchronize_session=False)
+    )
+    if updated:
+        db.commit()
+
+
+def migrate_attachment_comment_id(engine) -> None:
+    """Add comment_id column to attachments if missing (SQLite)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "attachments" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("attachments")}
+    if "comment_id" in cols:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE attachments ADD COLUMN comment_id INTEGER"))

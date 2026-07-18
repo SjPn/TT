@@ -1,0 +1,58 @@
+<div class="page-head project-head">
+  <div>
+    <p class="eyebrow mono">{{ project.key }}</p>
+    <h1>{{ project.name }}</h1>
+    {% if project.description %}<p class="muted">{{ project.description }}</p>{% endif %}
+    <p class="members-line muted">
+      {{ members|length }} member{% if members|length != 1 %}s{% endif %}:
+      {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+  </div>
+  <div class="head-actions">
+    <div class="view-toggle">
+      <a class="btn {% if view == 'list' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+         href="/projects/{{ project.id }}?view=list">List</a>
+      <a class="btn {% if view == 'board' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+         href="/projects/{{ project.id }}?view=board">Board</a>
+      <a class="btn {% if view == 'archive' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+         href="/projects/{{ project.id }}?view=archive">Архив</a>
+    </div>
+    <button class="btn btn-secondary" type="button" onclick="document.getElementById('members').showModal()">
+      Members
+    </button>
+    {% if view != 'archive' %}
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('new-issue').showModal()">
+      New issue <kbd>N</kbd>
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% if member_ok %}<p class="form-ok">{{ member_ok }}</p>{% endif %}
+{% if member_error %}<p class="form-error">{{ member_error }}</p>{% endif %}
+
+<dialog id="members" class="modal">
+  <form method="post" action="/projects/{{ project.id }}/members">
+    <header>
+      <h2>Project members</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+    </header>
+    <input type="hidden" name="return_view" value="{{ view }}">
+    <ul class="member-list">
+      {% for m in members %}
+      <li>
+        <strong>{{ m.name }}</strong>
+        <span class="muted">{{ m.email }}</span>
+        {% if m.id == project.owner_id %}<span class="pill">Owner</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <label>Add by email
+      <span class="hint">User must already be registered</span>
+      <input type="email" name="email" required placeholder="colleague@example.com" autofocus>
+    </label>
+    <footer>
+      <button class="btn btn-primary" type="submit">Add member</button>
+    </footer>
+  </form>
+</dialog>

@@ -1,0 +1,41 @@
+<dialog id="new-issue" class="modal modal-wide">
+  <form method="post" action="/projects/{{ project.id }}/issues" enctype="multipart/form-data">
+    <header>
+      <h2>New issue</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
+    </header>
+    <label>Title
+      <input name="title" required placeholder="Short, clear summary" autofocus>
+    </label>
+    <label>Description
+      <textarea name="description" rows="4" placeholder="Markdown supported"></textarea>
+    </label>
+    <label>Photos
+      <span class="hint">JPG, PNG, GIF, WebP — several files allowed</span>
+      <input type="file" name="photos" accept="image/*" multiple>
+    </label>
+    <div class="form-grid">
+      <label>Priority
+        <select name="priority">
+          {% for p in priorities %}
+          <option value="{{ p }}" {% if p == 'p3' %}selected{% endif %}>{{ priority_labels[p] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Assignee
+        <select name="assignee_id">
+          <option value="">Unassigned</option>
+          {% for m in members %}
+          <option value="{{ m.id }}">{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>Labels <span class="hint">(comma-separated)</span>
+      <input name="labels" placeholder="ui, backend">
+    </label>
+    <footer>
+      <button class="btn btn-primary" type="submit">Create issue</button>
+    </footer>
+  </form>
+</dialog>

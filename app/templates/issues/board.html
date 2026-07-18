@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ project.key }} · Board{% endblock %}
+{% block content %}
+{% include "partials/project_header.html" %}
+
+<div id="board" class="board">
+  {% include "partials/board_columns.html" %}
+</div>
+
+{% include "partials/new_issue_dialog.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+      e.preventDefault();
+      document.getElementById('new-issue').showModal();
+      document.querySelector('#new-issue [name=title]')?.focus();
+    }
+  });
+</script>
+{% endblock %}

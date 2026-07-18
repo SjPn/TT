@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ project.key }} · List{% endblock %}
+{% block content %}
+{% include "partials/project_header.html" %}
+
+<form class="filters" method="get" action="/projects/{{ project.id }}">
+  <input type="hidden" name="view" value="list">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search…" class="search">
+  <select name="status">
+    <option value="">All active</option>
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
+    {% endfor %}
+  </select>
+  <select name="priority">
+    <option value="">All priorities</option>
+    {% for p in priorities %}
+    <option value="{{ p }}" {% if filter_priority == p %}selected{% endif %}>{{ priority_labels[p] }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-secondary" type="submit">Filter</button>
+</form>
+
+<div class="table-wrap">
+  <table class="issue-table">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Title</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Assignee</th>
+      </tr>
+    </thead>
+    <tbody id="issue-rows">
+      {% include "partials/issue_rows.html" %}
+    </tbody>
+  </table>
+</div>
+
+{% include "partials/new_issue_dialog.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+      e.preventDefault();
+      document.getElementById('new-issue').showModal();
+      document.querySelector('#new-issue [name=title]')?.focus();
+    }
+  });
+</script>
+{% endblock %}
