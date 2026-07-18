@@ -132,10 +132,11 @@
       {% if not issue.is_archived %}
       <form class="comment-form" method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments" enctype="multipart/form-data">
         <label>Комментарий
-          <span class="hint">Можно упомянуть: {% for m in members %}@{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
-          <textarea name="body" rows="3" placeholder="Напишите @Имя, чтобы уведомить…" id="comment-body"></textarea>
+          <span class="hint">@Имя — уведомить · Ctrl+V — вставить скриншот из буфера</span>
+          <textarea name="body" rows="3" placeholder="Текст или Ctrl+V со скриншотом…" id="comment-body"></textarea>
         </label>
         <label>Фото
+          <span class="hint">Выберите файлы или вставьте из буфера (Ctrl+V)</span>
           <input type="file" name="photos" accept="image/*" multiple data-preview>
           <div class="photo-preview" hidden></div>
         </label>

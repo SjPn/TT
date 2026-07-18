@@ -56,6 +56,70 @@ function openNewIssue() {
   dialog.querySelector("[name=title]")?.focus();
 }
 
+function renderPhotoPreview(input) {
+  const box = input.parentElement?.querySelector(".photo-preview");
+  if (!box) return;
+  box.innerHTML = "";
+  const files = [...(input.files || [])].filter((f) => f.type.startsWith("image/"));
+  if (!files.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  files.slice(0, 8).forEach((file) => {
+    const url = URL.createObjectURL(file);
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = file.name;
+    img.onload = () => URL.revokeObjectURL(url);
+    box.appendChild(img);
+  });
+}
+
+function mergeImageFiles(input, newFiles) {
+  if (!input || !newFiles.length) return 0;
+  const dt = new DataTransfer();
+  const existing = [...(input.files || [])];
+  existing.forEach((f) => dt.items.add(f));
+  let added = 0;
+  for (const file of newFiles) {
+    if (!file.type.startsWith("image/")) continue;
+    if (dt.files.length >= 8) break;
+    dt.items.add(file);
+    added += 1;
+  }
+  input.files = dt.files;
+  renderPhotoPreview(input);
+  return added;
+}
+
+function filesFromClipboard(clipboardData) {
+  if (!clipboardData) return [];
+  const out = [];
+  const items = clipboardData.items ? [...clipboardData.items] : [];
+  items.forEach((item, i) => {
+    if (item.kind !== "file" || !item.type.startsWith("image/")) return;
+    const file = item.getAsFile();
+    if (!file) return;
+    const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+    const named =
+      file.name && file.name !== "image.png"
+        ? file
+        : new File([file], `paste-${Date.now()}-${i}.${ext}`, { type: file.type });
+    out.push(named);
+  });
+  if (!out.length && clipboardData.files?.length) {
+    [...clipboardData.files].forEach((file, i) => {
+      if (!file.type.startsWith("image/")) return;
+      const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      out.push(
+        new File([file], `paste-${Date.now()}-${i}.${ext}`, { type: file.type })
+      );
+    });
+  }
+  return out;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const flash = document.body?.dataset?.flash;
   if (flash && FLASH_MESSAGES[flash]) showToast(FLASH_MESSAGES[flash]);
@@ -78,7 +142,7 @@ document.addEventListener("keydown", (e) => {
 
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-  if (e.key === "/" ) {
+  if (e.key === "/") {
     const search = document.querySelector(".filters input[type=search], input.search");
     if (search) {
       e.preventDefault();
@@ -99,21 +163,22 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("change", (event) => {
   const input = event.target;
   if (!input?.matches?.("input[data-preview]")) return;
-  const box = input.parentElement?.querySelector(".photo-preview");
-  if (!box) return;
-  box.innerHTML = "";
-  const files = [...(input.files || [])].filter((f) => f.type.startsWith("image/"));
-  if (!files.length) {
-    box.hidden = true;
-    return;
+  renderPhotoPreview(input);
+});
+
+document.addEventListener("paste", (event) => {
+  const target = event.target;
+  const form = target?.closest?.("form");
+  if (!form) return;
+  const input = form.querySelector('input[type=file][name=photos][data-preview]');
+  if (!input) return;
+
+  const images = filesFromClipboard(event.clipboardData);
+  if (!images.length) return;
+
+  event.preventDefault();
+  const added = mergeImageFiles(input, images);
+  if (added) {
+    showToast(added === 1 ? "Фото из буфера добавлено" : `Добавлено фото: ${added}`);
   }
-  box.hidden = false;
-  files.slice(0, 8).forEach((file) => {
-    const url = URL.createObjectURL(file);
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = file.name;
-    img.onload = () => URL.revokeObjectURL(url);
-    box.appendChild(img);
-  });
 });
