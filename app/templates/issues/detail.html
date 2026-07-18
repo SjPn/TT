@@ -2,16 +2,29 @@
 {% block title %}{{ issue.title }} · {{ project.key }}{% endblock %}
 {% block content %}
 <div class="detail-layout detail-layout-single">
-  <section class="detail-main">
+  <section class="detail-main shell-{{ issue.status }}">
     <div class="detail-top">
       <div>
         <p class="eyebrow mono">
-          <a href="/projects/{{ project.id }}">{{ project.key }}</a>
+          <a href="/projects/{{ project.id }}">{{ project.name }}</a>
           {% if issue.is_archived %}· Архив{% endif %}
         </p>
         <h1>{{ issue.title }}</h1>
       </div>
       <div class="detail-actions">
+        {% if user.id == issue.author_id and not issue.is_archived %}
+        <a class="btn btn-secondary btn-sm" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Настроить</a>
+        {% endif %}
+        {% if can_delete %}
+        <button class="btn btn-danger-ghost btn-sm" type="button" onclick="document.getElementById('delete-issue').showModal()">Удалить</button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if can_start or can_mark_done or can_confirm or next_step %}
+    <section class="action-panel panel-{{ issue.status }}">
+      {% if next_step %}<p class="action-panel-hint">{{ next_step }}</p>{% endif %}
+      <div class="action-panel-btns">
         {% if can_start %}
         <form method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/start">
           <button class="btn btn-primary" type="submit">В работу</button>
@@ -27,17 +40,11 @@
           <button class="btn btn-primary" type="submit">Подтвердить решение</button>
         </form>
         {% endif %}
-        {% if user.id == issue.author_id and not issue.is_archived %}
-        <a class="btn btn-secondary" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Настроить</a>
-        {% endif %}
-        {% if can_delete %}
-        <button class="btn btn-danger-ghost btn-sm" type="button" onclick="document.getElementById('delete-issue').showModal()">Удалить</button>
+        {% if not can_start and not can_mark_done and not can_confirm and issue.author_id == user.id and not issue.assignee_id and not issue.is_archived %}
+        <a class="btn btn-primary" href="/projects/{{ project.id }}/issues/{{ issue.id }}/edit">Назначить исполнителя</a>
         {% endif %}
       </div>
-    </div>
-
-    {% if next_step %}
-    <p class="next-step">{{ next_step }}</p>
+    </section>
     {% endif %}
 
     <div class="detail-badges">
@@ -132,11 +139,11 @@
       {% if not issue.is_archived %}
       <form class="comment-form" method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments" enctype="multipart/form-data">
         <label>Комментарий
-          <span class="hint">@Имя — уведомить · Ctrl+V — вставить скриншот из буфера</span>
+          <span class="hint">@Имя — уведомить · Ctrl+V — скриншот из буфера</span>
           <textarea name="body" rows="3" placeholder="Текст или Ctrl+V со скриншотом…" id="comment-body"></textarea>
         </label>
         <label>Фото
-          <span class="hint">Выберите файлы или вставьте из буфера (Ctrl+V)</span>
+          <span class="hint">Файлы или вставка из буфера</span>
           <input type="file" name="photos" accept="image/*" multiple data-preview>
           <div class="photo-preview" hidden></div>
         </label>

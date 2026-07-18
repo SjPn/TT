@@ -1,6 +1,6 @@
 {% if issues %}
 {% for issue in issues %}
-<tr>
+<tr class="row-{{ issue.status }}">
   <td>
     <a class="issue-title" href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.title }}</a>
     {% if issue.label_list %}
@@ -12,8 +12,14 @@
     {% endif %}
   </td>
   <td><span class="pill priority-{{ issue.priority }}">{{ issue.priority | upper }}</span></td>
-  <td>{{ status_labels.get(issue.status, issue.status) }}</td>
-  <td>{{ issue.assignee.name if issue.assignee else '—' }}</td>
+  <td><span class="pill status-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span></td>
+  <td>
+    {% if issue.assignee %}
+    <span class="avatar-pill"><span class="avatar avatar-sm">{{ issue.assignee.initials }}</span>{{ issue.assignee.name }}</span>
+    {% else %}
+    —
+    {% endif %}
+  </td>
 </tr>
 {% endfor %}
 {% else %}

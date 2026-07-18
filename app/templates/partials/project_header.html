@@ -10,11 +10,11 @@
   </div>
   <div class="head-actions">
     <div class="view-toggle">
-      <a class="btn {% if view == 'list' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+      <a class="btn btn-sm {% if view == 'list' %}is-active{% endif %}"
          href="/projects/{{ project.id }}?view=list">Список</a>
-      <a class="btn {% if view == 'board' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+      <a class="btn btn-sm {% if view == 'board' %}is-active{% endif %}"
          href="/projects/{{ project.id }}?view=board">Доска</a>
-      <a class="btn {% if view == 'archive' %}btn-secondary{% else %}btn-ghost{% endif %} btn-sm"
+      <a class="btn btn-sm {% if view == 'archive' %}is-active{% endif %}"
          href="/projects/{{ project.id }}?view=archive">Архив</a>
     </div>
     <details class="menu-more">

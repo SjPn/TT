@@ -235,24 +235,25 @@ def log_activity(
 
 def next_step_hint(*, issue: Issue, user: User) -> str | None:
     if issue.status == IssueStatus.RESOLVED:
-        return "Задача в архиве. Обсуждение закрыто."
+        return "Задача решена и в архиве."
     if issue.status == IssueStatus.PENDING_CONFIRM:
         if issue.author_id == user.id:
-            return "Ваш ход: подтвердите решение или верните в работу через комментарий."
-        return "Ждём подтверждения автора задачи."
+            return "Проверьте результат и подтвердите."
+        return "Ждём подтверждения автора."
     if issue.assignee_id is None:
         if issue.author_id == user.id:
-            return "Назначьте исполнителя в «Настроить» — иначе задачу нельзя взять в работу."
+            return "Сначала назначьте исполнителя."
         return "Исполнитель ещё не назначен."
     if issue.assignee_id == user.id:
         if issue.status == IssueStatus.OPEN:
-            return "Ваш ход: нажмите «В работу», когда начнёте, или «Отметить выполненной»."
+            return "Ваш ход — начните или сразу отметьте готовой."
         if issue.status == IssueStatus.IN_PROGRESS:
-            return "Ваш ход: когда готово — «Отметить выполненной» (автор подтвердит)."
+            return "Когда готово — отметьте. Автор подтвердит."
     if issue.author_id == user.id and issue.status == IssueStatus.IN_PROGRESS:
-        return f"В работе у {issue.assignee.name if issue.assignee else 'исполнителя'}."
+        name = issue.assignee.name if issue.assignee else "исполнитель"
+        return f"В работе у {name}. Ждите отметки «готово»."
     if issue.assignee and issue.status == IssueStatus.OPEN:
-        return f"Ожидает, пока {issue.assignee.name} возьмёт в работу."
+        return f"Ждём, пока {issue.assignee.name} возьмёт задачу."
     return None
 
 
