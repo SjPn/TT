@@ -12,9 +12,8 @@ data/
 *.db
 *.db-*
 
-# Docs (keep most local; ship handoff + README for other machines / AI)
+# Docs (keep most local; ship README/DEPLOY only)
 *.md
-!AGENTS.md
 !README.md
 !DEPLOY.md
 docs/
