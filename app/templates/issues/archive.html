@@ -3,7 +3,7 @@
 {% block content %}
 {% include "partials/project_header.html" %}
 
-<form class="filters" method="get" action="/projects/{{ project.id }}">
+<form class="filters" method="get" action="/projects/{{ project.id }}" data-auto-filter>
   <input type="hidden" name="view" value="archive">
   <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="search">
   <select name="priority">
@@ -16,7 +16,6 @@
     <input type="checkbox" name="mine" value="1" {% if filter_mine %}checked{% endif %}>
     Мои
   </label>
-  <button class="btn btn-secondary" type="submit">Фильтр</button>
 </form>
 
 <div class="table-wrap">

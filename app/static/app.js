@@ -163,8 +163,14 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("change", (event) => {
   const input = event.target;
-  if (!input?.matches?.("input[data-preview]")) return;
-  renderPhotoPreview(input);
+  if (input?.matches?.("input[data-preview]")) {
+    renderPhotoPreview(input);
+    return;
+  }
+  const form = input?.closest?.("form[data-auto-filter]");
+  if (form && (input.matches("select") || input.matches('input[type=checkbox]'))) {
+    form.requestSubmit();
+  }
 });
 
 document.addEventListener("paste", (event) => {
