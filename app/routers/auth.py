@@ -12,6 +12,19 @@ from app.templating import templates
 router = APIRouter(tags=["auth"])
 
 
+def _set_session_cookie(response: RedirectResponse, request: Request, user_id: int) -> None:
+    # Secure cookies only work on HTTPS; HTTP sslip.io must not set Secure.
+    secure = request.url.scheme == "https"
+    response.set_cookie(
+        settings.session_cookie,
+        create_session_token(user_id),
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        max_age=settings.session_max_age,
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, user: User | None = Depends(get_current_user)):
     if user:
@@ -40,14 +53,7 @@ def login_submit(
             status_code=400,
         )
     redirect = RedirectResponse("/", status_code=303)
-    redirect.set_cookie(
-        settings.session_cookie,
-        create_session_token(user.id),
-        httponly=True,
-        samesite="lax",
-        secure=settings.https_only,
-        max_age=settings.session_max_age,
-    )
+    _set_session_cookie(redirect, request, user.id)
     return redirect
 
 
@@ -94,19 +100,15 @@ def register_submit(
         )
     user = create_user(db, email=email, name=name, password=password)
     redirect = RedirectResponse("/", status_code=303)
-    redirect.set_cookie(
-        settings.session_cookie,
-        create_session_token(user.id),
-        httponly=True,
-        samesite="lax",
-        secure=settings.https_only,
-        max_age=settings.session_max_age,
-    )
+    _set_session_cookie(redirect, request, user.id)
     return redirect
 
 
 @router.post("/logout")
-def logout():
+def logout(request: Request):
     redirect = RedirectResponse("/login", status_code=303)
-    redirect.delete_cookie(settings.session_cookie)
+    redirect.delete_cookie(
+        settings.session_cookie,
+        secure=request.url.scheme == "https",
+    )
     return redirect
