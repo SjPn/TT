@@ -234,6 +234,8 @@ def log_activity(
 
 
 def next_step_hint(*, issue: Issue, user: User) -> str | None:
+    self_assigned = issue.assignee_id is not None and issue.assignee_id == issue.author_id
+
     if issue.status == IssueStatus.RESOLVED:
         return "Задача решена и в архиве."
     if issue.status == IssueStatus.PENDING_CONFIRM:
@@ -248,6 +250,8 @@ def next_step_hint(*, issue: Issue, user: User) -> str | None:
         if issue.status == IssueStatus.OPEN:
             return "Ваш ход — начните или сразу отметьте готовой."
         if issue.status == IssueStatus.IN_PROGRESS:
+            if self_assigned or issue.author_id == user.id:
+                return "Когда готово — отметьте, задача закроется."
             return "Когда готово — отметьте. Автор подтвердит."
     if issue.author_id == user.id and issue.status == IssueStatus.IN_PROGRESS:
         name = issue.assignee.name if issue.assignee else "исполнитель"
@@ -517,6 +521,9 @@ def mark_issue_done(db: Session, *, issue: Issue, user: User) -> Issue:
         raise WorkflowError("Отметить выполнение может только назначенный")
     if issue.status == IssueStatus.PENDING_CONFIRM:
         raise WorkflowError("Уже ожидает подтверждения автора")
+    # Author working on own task — no need to confirm yourself
+    if issue.author_id == user.id:
+        return update_issue_status(db, issue, IssueStatus.RESOLVED, actor=user)
     return update_issue_status(db, issue, IssueStatus.PENDING_CONFIRM, actor=user)
 
 
