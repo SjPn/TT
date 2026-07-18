@@ -1,19 +1,32 @@
 <div class="page-head project-head">
   <div class="project-title-row">
     <h1>{{ project.name }}</h1>
-    <details class="menu-more">
-      <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
-      <div class="menu-panel">
-        <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
-        {% if user.id == project.owner_id %}
-        <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>
-        <button type="button" class="danger" onclick="document.getElementById('delete-project').showModal()">Удалить проект</button>
-        {% endif %}
-        <form method="post" action="/logout" class="menu-logout-mobile">
-          <button type="submit">Выйти</button>
-        </form>
-      </div>
-    </details>
+    <div class="project-toolbar">
+      {% if project.description or members %}
+      <details class="project-meta">
+        <summary>О проекте · {{ members|length }} уч.</summary>
+        <div class="project-meta-body">
+          {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
+          <p class="members-line muted">
+            {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </p>
+        </div>
+      </details>
+      {% endif %}
+      <details class="menu-more">
+        <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
+        <div class="menu-panel">
+          <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
+          {% if user.id == project.owner_id %}
+          <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>
+          <button type="button" class="danger" onclick="document.getElementById('delete-project').showModal()">Удалить проект</button>
+          {% endif %}
+          <form method="post" action="/logout" class="menu-logout-mobile">
+            <button type="submit">Выйти</button>
+          </form>
+        </div>
+      </details>
+    </div>
   </div>
 
   {% if project.description or members %}
@@ -24,13 +37,6 @@
       {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
     </p>
   </div>
-  <details class="project-meta">
-    <summary>О проекте · {{ members|length }} уч.</summary>
-    {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
-    <p class="members-line muted">
-      {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
-    </p>
-  </details>
   {% endif %}
 
   <div class="head-actions">
