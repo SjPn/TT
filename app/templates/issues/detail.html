@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}{{ issue.key }} · {{ issue.title }}{% endblock %}
+{% block title %}{{ issue.title }} · {{ project.key }}{% endblock %}
 {% block content %}
 <div class="detail-layout detail-layout-single">
   <section class="detail-main">
     <div class="detail-top">
       <div>
         <p class="eyebrow mono">
-          <a href="/projects/{{ project.id }}">{{ project.key }}</a> · {{ issue.key }}
+          <a href="/projects/{{ project.id }}">{{ project.key }}</a>
           {% if issue.is_archived %}· Архив{% endif %}
         </p>
         <h1>{{ issue.title }}</h1>

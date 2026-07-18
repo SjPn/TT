@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Настроить · {{ issue.key }}{% endblock %}
+{% block title %}Настроить · {{ issue.title }}{% endblock %}
 {% block content %}
 <div class="edit-page">
   <div class="page-head">
     <div>
       <p class="eyebrow mono">
-        <a href="/projects/{{ project.id }}/issues/{{ issue.id }}">{{ issue.key }}</a>
+        <a href="/projects/{{ project.id }}/issues/{{ issue.id }}">К задаче</a>
       </p>
       <h1>Настроить</h1>
       <p class="muted">{{ issue.title }}</p>
