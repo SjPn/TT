@@ -1,10 +1,17 @@
 <div class="page-head project-head">
   <div class="project-title-row">
-    <h1>{{ project.name }}</h1>
+    <div class="project-title-block">
+      <h1>{{ project.name }}</h1>
+      {% if project.description %}
+      <span class="project-desc-inline muted">{{ project.description }}</span>
+      {% endif %}
+    </div>
     <div class="project-toolbar">
       {% if project.description or members %}
       <details class="project-meta">
-        <summary>О проекте · {{ members|length }} уч.</summary>
+        <summary class="project-meta-toggle">
+          <span class="project-meta-label">О проекте · {{ members|length }} уч.</span>
+        </summary>
         <div class="project-meta-body">
           {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
           <p class="members-line muted">
@@ -29,9 +36,8 @@
     </div>
   </div>
 
-  {% if project.description or members %}
+  {% if members %}
   <div class="project-meta-full">
-    {% if project.description %}<p class="muted project-desc">{{ project.description }}</p>{% endif %}
     <p class="members-line muted">
       Участники ({{ members|length }}):
       {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
