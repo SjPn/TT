@@ -175,11 +175,17 @@ class Comment(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    reply_to_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("comments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     issue: Mapped["Issue"] = relationship(back_populates="comments")
     author: Mapped["User"] = relationship(back_populates="comments")
+    reply_to: Mapped[Optional["Comment"]] = relationship(
+        "Comment", remote_side="Comment.id", foreign_keys=[reply_to_id]
+    )
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="comment", cascade="all, delete-orphan", order_by="Attachment.created_at"
     )

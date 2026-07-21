@@ -431,3 +431,189 @@ def test_delete_issue_removes_upload_files(client: TestClient):
         db.close()
 
     assert not (UPLOAD_DIR / stored).exists()
+
+
+def _issue_titles(html: str) -> list[str]:
+    import re
+
+    return re.findall(r'class="issue-title"[^>]*>([^<]+)<', html)
+
+
+def test_issue_scope_filters(client: TestClient):
+    _register(client, "owner@ex.com", "Owner")
+    client.post("/projects", data={"name": "Scope", "key": "SCP", "description": ""})
+    from app.database import SessionLocal
+    from app.models import Project, User
+
+    db = SessionLocal()
+    try:
+        project = db.query(Project).one()
+        owner = db.query(User).filter_by(email="owner@ex.com").one()
+        pid = project.id
+    finally:
+        db.close()
+
+    client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Created by owner",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+    _register(client, "dev@ex.com", "Dev")
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "owner@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/members",
+        data={"email": "dev@ex.com", "return_view": "list"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "For dev assignee",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        dev = db.query(User).filter_by(email="dev@ex.com").one()
+        dev_id = dev.id
+    finally:
+        db.close()
+    client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Owner assigns dev",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": str(dev_id),
+        },
+        follow_redirects=False,
+    )
+
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "dev@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Created by dev",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+
+    assigned = client.get(f"/projects/{pid}?role=assigned")
+    assert assigned.status_code == 200
+    assert _issue_titles(assigned.text) == ["Owner assigns dev"]
+
+    created = client.get(f"/projects/{pid}?role=created")
+    assert created.status_code == 200
+    assert _issue_titles(created.text) == ["Created by dev"]
+
+
+def test_comment_reply(client: TestClient):
+    _register(client, "u@ex.com", "U")
+    client.post("/projects", data={"name": "P", "key": "RP", "description": ""})
+    from app.database import SessionLocal
+    from app.models import Comment, Project
+
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    r = client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Discuss",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+    issue_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[-1])
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "Первый комментарий"},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        parent = db.query(Comment).one()
+        parent_id = parent.id
+    finally:
+        db.close()
+
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "Ответ на первый", "reply_to_id": str(parent_id)},
+        follow_redirects=False,
+    )
+    detail = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert detail.status_code == 200
+    assert "Первый комментарий" in detail.text
+    assert "Ответ на первый" in detail.text
+    assert "comment-quote" in detail.text
+
+
+def test_project_export_zip(client: TestClient):
+    _register(client, "u@ex.com", "U")
+    client.post("/projects", data={"name": "ExportMe", "key": "EXP", "description": "d"})
+    from app.database import SessionLocal
+    from app.models import Project
+    import io
+    import json
+    import zipfile
+
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Task one",
+            "description": "desc",
+            "priority": "p2",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+
+    r = client.get(f"/projects/{pid}/export")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    zf = zipfile.ZipFile(io.BytesIO(r.content))
+    assert "project.json" in zf.namelist()
+    data = json.loads(zf.read("project.json"))
+    assert data["format"] == "tasktracker-project-v1"
+    assert data["project"]["name"] == "ExportMe"
+    assert len(data["issues"]) == 1
+    assert data["issues"][0]["title"] == "Task one"

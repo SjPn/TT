@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
@@ -14,6 +14,7 @@ from app.models import User
 from app.services import (
     MemberError,
     add_project_member,
+    build_project_export_zip,
     create_project,
     delete_project,
     update_project,
@@ -104,6 +105,22 @@ def delete_project_route(
     project = require_project_owner(db, user, project_id)
     delete_project(db, project=project)
     return RedirectResponse("/?flash=project_deleted", status_code=303)
+
+
+@router.get("/projects/{project_id}/export")
+def export_project_route(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    project = require_project_access(db, user, project_id)
+    payload = build_project_export_zip(db, project)
+    filename = f"{project.key}-export.zip"
+    return Response(
+        content=payload,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/projects/{project_id}/members")

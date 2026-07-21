@@ -62,6 +62,7 @@ def project_issues(
     q: str | None = Query(None),
     status: str | None = Query(None),
     priority: str | None = Query(None),
+    role: str | None = Query(None),
     mine: str | None = Query(None),
     view: str = Query("list"),
     member_ok: str | None = Query(None),
@@ -72,14 +73,19 @@ def project_issues(
 ):
     project = require_project_access(db, user, project_id)
     members = project_members(db, project)
-    only_mine = mine in ("1", "true", "yes", "on")
+    # role: assigned | created; legacy mine=1 → assigned
+    filter_role = (role or "").strip().lower()
+    if not filter_role and mine in ("1", "true", "yes", "on"):
+        filter_role = "assigned"
+    assignee_filter = user.id if filter_role == "assigned" else None
+    author_filter = user.id if filter_role == "created" else None
     ctx = _common_ctx(project, user, members)
     ctx.update(
         {
             "q": q or "",
             "filter_status": status or "",
             "filter_priority": priority or "",
-            "filter_mine": only_mine,
+            "filter_role": filter_role,
             "view": view,
             "member_ok": member_ok,
             "member_error": member_error,
@@ -96,7 +102,8 @@ def project_issues(
             project,
             q=q,
             priority=priority,
-            assignee_id=user.id if only_mine else None,
+            assignee_id=assignee_filter,
+            author_id=author_filter,
             archived=True,
         )
         return templates.TemplateResponse(request, "issues/archive.html", ctx)
@@ -107,7 +114,8 @@ def project_issues(
         q=q,
         status=status,
         priority=priority,
-        assignee_id=user.id if only_mine else None,
+        assignee_id=assignee_filter,
+        author_id=author_filter,
         archived=False,
     )
     return templates.TemplateResponse(request, "issues/list.html", ctx)
@@ -204,6 +212,7 @@ def issue_detail(
             joinedload(Issue.activities).joinedload(Activity.actor),
             joinedload(Issue.activities).joinedload(Activity.comment).joinedload(Comment.attachments),
             joinedload(Issue.activities).joinedload(Activity.comment).joinedload(Comment.author),
+            joinedload(Issue.activities).joinedload(Activity.comment).joinedload(Comment.reply_to).joinedload(Comment.author),
         )
         .filter(Issue.id == issue_id, Issue.project_id == project.id)
         .first()
@@ -395,6 +404,7 @@ async def post_comment(
     project_id: int,
     issue_id: int,
     body: str = Form(""),
+    reply_to_id: str = Form(""),
     photos: Annotated[list[UploadFile], File()] = [],
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
@@ -409,8 +419,19 @@ async def post_comment(
     has_photos = any(p.filename for p in photos) if photos else False
     if not text and not has_photos:
         return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+    reply_id: int | None = None
+    if reply_to_id.strip().isdigit():
+        candidate = int(reply_to_id.strip())
+        parent = db.get(Comment, candidate)
+        if parent and parent.issue_id == issue.id:
+            reply_id = candidate
     comment = add_comment(
-        db, issue=issue, author=user, body=text or " ", members=project_members(db, project)
+        db,
+        issue=issue,
+        author=user,
+        body=text or " ",
+        members=project_members(db, project),
+        reply_to_id=reply_id,
     )
     if has_photos:
         await save_images(db, issue=issue, files=list(photos), comment=comment)

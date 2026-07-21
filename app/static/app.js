@@ -168,8 +168,51 @@ document.addEventListener("change", (event) => {
     return;
   }
   const form = input?.closest?.("form[data-auto-filter]");
-  if (form && (input.matches("select") || input.matches('input[type=checkbox]'))) {
+  if (form && input.matches("select")) {
     form.requestSubmit();
+  }
+});
+
+function clearReplyPreview(form) {
+  const input = form.querySelector('[name="reply_to_id"]');
+  const preview = form.querySelector(".reply-preview");
+  if (input) input.value = "";
+  if (preview) {
+    preview.hidden = true;
+    const text = preview.querySelector(".reply-preview-text");
+    if (text) text.textContent = "";
+  }
+}
+
+function setReplyPreview(form, { id, author, body }) {
+  const input = form.querySelector('[name="reply_to_id"]');
+  const preview = form.querySelector(".reply-preview");
+  const text = preview?.querySelector(".reply-preview-text");
+  if (!input || !preview || !text) return;
+  input.value = id;
+  text.textContent = `${author}: ${body}`;
+  preview.hidden = false;
+  form.querySelector("textarea")?.focus();
+}
+
+document.addEventListener("click", (event) => {
+  const replyBtn = event.target.closest?.(".comment-reply-btn");
+  if (replyBtn) {
+    const form = document.querySelector(".comment-form");
+    if (!form) return;
+    setReplyPreview(form, {
+      id: replyBtn.dataset.replyId,
+      author: replyBtn.dataset.replyAuthor,
+      body: replyBtn.dataset.replyBody || "",
+    });
+    form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  const cancelBtn = event.target.closest?.(".reply-preview-cancel");
+  if (cancelBtn) {
+    const form = cancelBtn.closest(".comment-form");
+    if (form) clearReplyPreview(form);
   }
 });
 

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
+import json
 import re
 import uuid
+import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -34,7 +38,9 @@ ALLOWED_IMAGE_TYPES = {
     "image/gif",
     "image/webp",
 }
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_STORED_BYTES = 2 * 1024 * 1024
+MAX_IMAGE_SIDE = 1920
 MENTION_RE = re.compile(r"@([^\s@]+(?:\s+[^\s@]+)?)")
 
 
@@ -413,6 +419,7 @@ def list_issues(
     status: str | None = None,
     priority: str | None = None,
     assignee_id: int | None = None,
+    author_id: int | None = None,
     archived: bool = False,
 ) -> list[Issue]:
     query = (
@@ -444,6 +451,8 @@ def list_issues(
         query = query.filter(Issue.priority == priority)
     if assignee_id:
         query = query.filter(Issue.assignee_id == assignee_id)
+    if author_id:
+        query = query.filter(Issue.author_id == author_id)
 
     priority_rank = {
         Priority.P1: 0,
@@ -542,8 +551,14 @@ def add_comment(
     author: User,
     body: str,
     members: list[User] | None = None,
+    reply_to_id: int | None = None,
 ) -> Comment:
-    comment = Comment(issue_id=issue.id, author_id=author.id, body=body.strip())
+    comment = Comment(
+        issue_id=issue.id,
+        author_id=author.id,
+        body=body.strip(),
+        reply_to_id=reply_to_id,
+    )
     db.add(comment)
     db.flush()
     preview = body.strip()
@@ -565,6 +580,57 @@ def add_comment(
     return comment
 
 
+def _ext_for_type(content_type: str) -> str:
+    return {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+    }.get(content_type, ".jpg")
+
+
+def _optimize_image(data: bytes, content_type: str) -> tuple[bytes, str, str]:
+    """Resize/compress image; returns (bytes, content_type, ext)."""
+    if content_type == "image/gif":
+        return data, content_type, ".gif"
+
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return data, content_type, _ext_for_type(content_type)
+
+    img = Image.open(io.BytesIO(data))
+    img = ImageOps.exif_transpose(img)
+    if max(img.size) > MAX_IMAGE_SIDE:
+        img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.Resampling.LANCZOS)
+
+    if content_type == "image/png" and img.mode in ("RGBA", "LA", "P"):
+        out = io.BytesIO()
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        img.save(out, format="PNG", optimize=True)
+        result = out.getvalue()
+        if len(result) <= MAX_IMAGE_STORED_BYTES:
+            return result, "image/png", ".png"
+
+    if img.mode in ("RGBA", "LA", "P"):
+        bg = Image.new("RGB", img.size, (255, 255, 255))
+        rgba = img.convert("RGBA")
+        bg.paste(rgba, mask=rgba.split()[-1])
+        img = bg
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    for quality in (85, 75, 65):
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=quality, optimize=True)
+        result = out.getvalue()
+        if len(result) <= MAX_IMAGE_STORED_BYTES:
+            return result, "image/jpeg", ".jpg"
+    return result, "image/jpeg", ".jpg"
+
+
 async def save_images(
     db: Session,
     *,
@@ -581,17 +647,13 @@ async def save_images(
         if content_type not in ALLOWED_IMAGE_TYPES:
             continue
         data = await upload.read()
-        if not data or len(data) > MAX_IMAGE_BYTES:
+        if not data or len(data) > MAX_IMAGE_UPLOAD_BYTES:
             continue
-        ext = Path(upload.filename).suffix.lower()
+        data, content_type, ext = _optimize_image(data, content_type)
+        if not data or len(data) > MAX_IMAGE_STORED_BYTES:
+            continue
         if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
-            ext = {
-                "image/jpeg": ".jpg",
-                "image/jpg": ".jpg",
-                "image/png": ".png",
-                "image/gif": ".gif",
-                "image/webp": ".webp",
-            }.get(content_type, ".jpg")
+            ext = _ext_for_type(content_type)
         stored = f"{uuid.uuid4().hex}{ext}"
         (UPLOAD_DIR / stored).write_bytes(data)
         att = Attachment(
@@ -699,3 +761,137 @@ def migrate_attachment_comment_id(engine) -> None:
         return
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE attachments ADD COLUMN comment_id INTEGER"))
+
+
+def migrate_comment_reply_to_id(engine) -> None:
+    """Add reply_to_id column to comments if missing (SQLite)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "comments" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("comments")}
+    if "reply_to_id" in cols:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE comments ADD COLUMN reply_to_id INTEGER"))
+
+
+def _dt(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
+def build_project_export_zip(db: Session, project: Project) -> bytes:
+    full = (
+        db.query(Project)
+        .options(
+            joinedload(Project.owner),
+            joinedload(Project.members).joinedload(ProjectMember.user),
+            joinedload(Project.issues).joinedload(Issue.author),
+            joinedload(Project.issues).joinedload(Issue.assignee),
+            joinedload(Project.issues).joinedload(Issue.comments).joinedload(Comment.author),
+            joinedload(Project.issues).joinedload(Issue.comments).joinedload(Comment.attachments),
+            joinedload(Project.issues).joinedload(Issue.attachments),
+            joinedload(Project.issues).joinedload(Issue.activities),
+        )
+        .filter(Project.id == project.id)
+        .first()
+    )
+    if not full:
+        raise ValueError("project not found")
+
+    payload = {
+        "exported_at": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
+        "format": "tasktracker-project-v1",
+        "project": {
+            "id": full.id,
+            "key": full.key,
+            "name": full.name,
+            "description": full.description,
+            "owner": {"name": full.owner.name, "email": full.owner.email},
+            "members": [
+                {"name": m.user.name, "email": m.user.email, "role": m.role}
+                for m in full.members
+            ],
+        },
+        "issues": [],
+    }
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for issue in sorted(full.issues, key=lambda i: i.number):
+            issue_attachments = [
+                {
+                    "filename": att.filename,
+                    "stored_name": att.stored_name,
+                    "content_type": att.content_type,
+                    "created_at": _dt(att.created_at),
+                }
+                for att in issue.attachments
+            ]
+            comments = []
+            for comment in issue.comments:
+                comment_atts = [
+                    {
+                        "filename": att.filename,
+                        "stored_name": att.stored_name,
+                        "content_type": att.content_type,
+                        "created_at": _dt(att.created_at),
+                    }
+                    for att in comment.attachments
+                ]
+                comments.append(
+                    {
+                        "id": comment.id,
+                        "author": comment.author.name,
+                        "author_email": comment.author.email,
+                        "reply_to_id": comment.reply_to_id,
+                        "body": comment.body,
+                        "created_at": _dt(comment.created_at),
+                        "attachments": comment_atts,
+                    }
+                )
+                for att in comment.attachments:
+                    path = UPLOAD_DIR / att.stored_name
+                    if path.is_file():
+                        zf.write(path, f"uploads/{att.stored_name}")
+
+            activities = [
+                {
+                    "kind": act.kind,
+                    "body": act.body,
+                    "actor": act.actor.name if act.actor else None,
+                    "comment_id": act.comment_id,
+                    "created_at": _dt(act.created_at),
+                }
+                for act in issue.activities
+            ]
+
+            for att in issue.attachments:
+                path = UPLOAD_DIR / att.stored_name
+                if path.is_file():
+                    zf.write(path, f"uploads/{att.stored_name}")
+
+            payload["issues"].append(
+                {
+                    "number": issue.number,
+                    "title": issue.title,
+                    "description": issue.description,
+                    "status": issue.status,
+                    "priority": issue.priority,
+                    "labels": issue.labels,
+                    "author": issue.author.name,
+                    "assignee": issue.assignee.name if issue.assignee else None,
+                    "created_at": _dt(issue.created_at),
+                    "updated_at": _dt(issue.updated_at),
+                    "attachments": issue_attachments,
+                    "comments": comments,
+                    "activities": activities,
+                }
+            )
+
+        zf.writestr(
+            "project.json",
+            json.dumps(payload, ensure_ascii=False, indent=2),
+        )
+    return buf.getvalue()

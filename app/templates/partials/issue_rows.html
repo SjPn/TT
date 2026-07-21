@@ -20,8 +20,10 @@
   <td colspan="4" class="empty-cell">
     {% if view == 'archive' %}
     Архив пуст.
-    {% elif filter_mine %}
+    {% elif filter_role == 'assigned' %}
     Нет задач, назначенных вам.
+    {% elif filter_role == 'created' %}
+    Нет задач, созданных вами.
     {% elif q or filter_status or filter_priority %}
     Ничего не найдено. Сбросьте фильтры или создайте задачу.
     {% else %}

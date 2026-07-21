@@ -23,6 +23,7 @@
       <details class="menu-more">
         <summary class="btn btn-ghost btn-sm" title="Ещё">⋯</summary>
         <div class="menu-panel">
+          <a class="menu-link" href="/projects/{{ project.id }}/export">Экспорт проекта</a>
           <button type="button" onclick="document.getElementById('members').showModal()">Участники</button>
           {% if user.id == project.owner_id %}
           <button type="button" onclick="document.getElementById('edit-project').showModal()">Изменить</button>

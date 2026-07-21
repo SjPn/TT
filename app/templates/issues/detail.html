@@ -99,6 +99,12 @@
                 <time class="muted">{{ a.created_at.strftime('%d.%m %H:%M') if a.created_at else '' }}</time>
               </div>
             </header>
+            {% if a.comment.reply_to %}
+            <blockquote class="comment-quote">
+              <strong>{{ a.comment.reply_to.author.name }}</strong>
+              <span>{{ a.comment.reply_to.body | replace('\n', ' ') | truncate(180, True) }}</span>
+            </blockquote>
+            {% endif %}
             {% if a.comment.body and a.comment.body.strip() %}
             <div class="prose">{{ a.comment.body | mention_md(members) }}</div>
             {% endif %}
@@ -110,6 +116,14 @@
               </a>
               {% endfor %}
             </div>
+            {% endif %}
+            {% if not issue.is_archived %}
+            <button type="button" class="btn btn-ghost btn-xs comment-reply-btn"
+              data-reply-id="{{ a.comment.id }}"
+              data-reply-author="{{ a.actor.name if a.actor else 'Кто-то' }}"
+              data-reply-body="{{ (a.comment.body or '') | replace('\n', ' ') | truncate(120, True) | e }}">
+              Ответить
+            </button>
             {% endif %}
             {% else %}
             <p class="timeline-system">
@@ -130,8 +144,13 @@
 
       {% if not issue.is_archived %}
       <form class="comment-form" method="post" action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments" enctype="multipart/form-data">
+        <input type="hidden" name="reply_to_id" value="">
+        <div class="reply-preview" hidden>
+          <span class="reply-preview-text"></span>
+          <button type="button" class="btn btn-ghost btn-xs reply-preview-cancel" aria-label="Отменить ответ">×</button>
+        </div>
         <label>Комментарий
-          <span class="hint">@Имя — уведомить · Ctrl+V — скриншот из буфера</span>
+          <span class="hint">@Имя — уведомить · Ctrl+V — скриншот · «Ответить» — цитата</span>
           <textarea name="body" rows="3" placeholder="Текст или Ctrl+V со скриншотом…" id="comment-body"></textarea>
         </label>
         <label>Фото

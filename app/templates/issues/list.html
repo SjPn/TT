@@ -3,8 +3,8 @@
 {% block content %}
 {% include "partials/project_header.html" %}
 
-<details class="filters-wrap" {% if q or filter_status or filter_priority or filter_mine %}open{% endif %}>
-  <summary class="filters-summary">Поиск и фильтры{% if filter_mine or filter_status or filter_priority or q %} · активны{% endif %}</summary>
+<details class="filters-wrap" {% if q or filter_status or filter_priority or filter_role %}open{% endif %}>
+  <summary class="filters-summary">Поиск и фильтры{% if filter_role or filter_status or filter_priority or q %} · активны{% endif %}</summary>
   <form class="filters" method="get" action="/projects/{{ project.id }}" data-auto-filter>
     <input type="hidden" name="view" value="list">
     <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="search">
@@ -20,10 +20,11 @@
       <option value="{{ p }}" {% if filter_priority == p %}selected{% endif %}>{{ priority_labels[p] }}</option>
       {% endfor %}
     </select>
-    <label class="filter-check">
-      <input type="checkbox" name="mine" value="1" {% if filter_mine %}checked{% endif %}>
-      Мои
-    </label>
+    <select name="role">
+      <option value="">Все задачи</option>
+      <option value="assigned" {% if filter_role == 'assigned' %}selected{% endif %}>Назначенные мне</option>
+      <option value="created" {% if filter_role == 'created' %}selected{% endif %}>Созданные мной</option>
+    </select>
   </form>
 </details>
 
