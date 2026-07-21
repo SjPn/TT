@@ -752,7 +752,7 @@ label {
 }
 .detail-layout-single {
   grid-template-columns: minmax(0, 1fr);
-  max-width: 760px;
+  width: 100%;
 }
 .detail-labels { margin: 0 0 1rem; }
 .detail-main, .detail-side, .auth-card, .edit-form {
@@ -825,6 +825,10 @@ label {
   margin-bottom: 0.15rem;
 }
 .comment-reply-btn { margin-top: 0.35rem; }
+.reply-preview[hidden],
+.photo-preview[hidden] {
+  display: none !important;
+}
 .reply-preview {
   display: flex;
   align-items: flex-start;
@@ -1007,6 +1011,11 @@ input[type="file"]:hover::file-selector-button {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+.photo-preview-item {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
 .photo-preview img {
   width: 72px;
   height: 72px;
@@ -1014,6 +1023,27 @@ input[type="file"]:hover::file-selector-button {
   border-radius: 8px;
   border: 1px solid var(--line);
   box-shadow: 0 1px 2px rgba(18, 32, 42, 0.06);
+}
+.photo-preview-remove {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(21, 32, 43, 0.88);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(18, 32, 42, 0.18);
+}
+.photo-preview-remove:hover {
+  background: var(--p1);
 }
 
 .avatar {

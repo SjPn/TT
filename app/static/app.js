@@ -67,13 +67,26 @@ function renderPhotoPreview(input) {
     return;
   }
   box.hidden = false;
-  files.slice(0, 8).forEach((file) => {
+  files.slice(0, 8).forEach((file, index) => {
+    const item = document.createElement("div");
+    item.className = "photo-preview-item";
+
     const url = URL.createObjectURL(file);
     const img = document.createElement("img");
     img.src = url;
     img.alt = file.name;
     img.onload = () => URL.revokeObjectURL(url);
-    box.appendChild(img);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "photo-preview-remove";
+    removeBtn.setAttribute("aria-label", `Удалить фото ${file.name}`);
+    removeBtn.dataset.previewIndex = String(index);
+    removeBtn.textContent = "×";
+
+    item.appendChild(img);
+    item.appendChild(removeBtn);
+    box.appendChild(item);
   });
 }
 
@@ -92,6 +105,16 @@ function mergeImageFiles(input, newFiles) {
   input.files = dt.files;
   renderPhotoPreview(input);
   return added;
+}
+
+function removeImageFile(input, indexToRemove) {
+  if (!input?.files?.length) return;
+  const dt = new DataTransfer();
+  [...input.files].forEach((file, index) => {
+    if (index !== indexToRemove) dt.items.add(file);
+  });
+  input.files = dt.files;
+  renderPhotoPreview(input);
 }
 
 function filesFromClipboard(clipboardData) {
@@ -196,6 +219,18 @@ function setReplyPreview(form, { id, author, body }) {
 }
 
 document.addEventListener("click", (event) => {
+  const removePhotoBtn = event.target.closest?.(".photo-preview-remove");
+  if (removePhotoBtn) {
+    const preview = removePhotoBtn.closest(".photo-preview");
+    const label = preview?.parentElement;
+    const input = label?.querySelector?.('input[type="file"][data-preview]');
+    const index = Number(removePhotoBtn.dataset.previewIndex);
+    if (input && Number.isInteger(index)) {
+      removeImageFile(input, index);
+    }
+    return;
+  }
+
   const replyBtn = event.target.closest?.(".comment-reply-btn");
   if (replyBtn) {
     const form = document.querySelector(".comment-form");
