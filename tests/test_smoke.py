@@ -59,7 +59,12 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def _register(client: TestClient, email: str, name: str = "User") -> None:
     r = client.post(
         "/register",
-        data={"name": name, "email": email, "password": "secret1"},
+        data={
+            "name": name,
+            "email": email,
+            "password": "secret1",
+            "password_confirm": "secret1",
+        },
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -73,6 +78,17 @@ def test_register_login_ru(client: TestClient):
     r = client.get("/login")
     assert r.status_code == 200
     assert "Вход" in r.text
+    bad = client.post(
+        "/register",
+        data={
+            "name": "Аня",
+            "email": "a@example.com",
+            "password": "secret1",
+            "password_confirm": "other1",
+        },
+    )
+    assert bad.status_code == 400
+    assert "не совпадают" in bad.text
     _register(client, "a@example.com", "Аня")
     home = client.get("/")
     assert home.status_code == 200

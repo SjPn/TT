@@ -479,6 +479,12 @@ label {
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
+.form-grid label { margin-bottom: 0; }
+.password-fields .field-row-hint {
+  grid-column: 1 / -1;
+  margin: 0 0 0.15rem;
+  font-size: 0.85rem;
+}
 
 .table-wrap {
   background: var(--surface);
@@ -1295,16 +1301,14 @@ input[type="file"]:hover::file-selector-button {
 
   .board {
     display: flex;
-    gap: 0.6rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0.35rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow: visible;
   }
   .board-column {
-    flex: 0 0 min(82vw, 280px);
-    scroll-snap-align: start;
-    min-height: 240px;
+    flex: none;
+    width: 100%;
+    min-height: auto;
   }
   .board-column header { padding: 0.55rem 0.65rem; }
   .board-column h2 { font-size: 0.85rem; }

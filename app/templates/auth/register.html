@@ -17,9 +17,14 @@
     <label>Email
       <input type="email" name="email" value="{{ email }}" required>
     </label>
-    <label>Пароль
-      <input type="password" name="password" minlength="6" required>
-    </label>
+    <div class="form-grid">
+      <label>Пароль
+        <input type="password" name="password" minlength="6" required autocomplete="new-password">
+      </label>
+      <label>Подтверждение пароля
+        <input type="password" name="password_confirm" minlength="6" required autocomplete="new-password">
+      </label>
+    </div>
     <button class="btn btn-primary" type="submit">Создать аккаунт</button>
     <p class="auth-alt">Уже есть аккаунт? <a href="/login">Войти</a></p>
   </form>

@@ -80,6 +80,7 @@ def register_submit(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
+    password_confirm: str = Form(...),
     db: Session = Depends(get_db),
 ):
     if len(password) < 6:
@@ -88,6 +89,17 @@ def register_submit(
             "auth/register.html",
             {
                 "error": "Пароль не короче 6 символов",
+                "email": email,
+                "name": name,
+            },
+            status_code=400,
+        )
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            request,
+            "auth/register.html",
+            {
+                "error": "Пароли не совпадают",
                 "email": email,
                 "name": name,
             },
