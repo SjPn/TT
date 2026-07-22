@@ -14,6 +14,7 @@ from app.services import (
     list_notifications,
     migrate_attachment_comment_id,
     migrate_backfill_activities,
+    migrate_comment_edited_at,
     migrate_comment_reply_to_id,
     migrate_legacy_statuses,
     unread_notification_count,
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     Base.metadata.create_all(bind=engine)
     migrate_attachment_comment_id(engine)
     migrate_comment_reply_to_id(engine)
+    migrate_comment_edited_at(engine)
 
     db = SessionLocal()
     try:

@@ -244,12 +244,58 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const editBtn = event.target.closest?.(".comment-edit-btn");
+  if (editBtn) {
+    const id = editBtn.dataset.commentId;
+    if (!id) return;
+    document.querySelectorAll(".comment-edit-form:not([hidden])").forEach((openForm) => {
+      const openId = openForm.getAttribute("data-comment-edit");
+      if (openId && openId !== id) closeCommentEdit(openId);
+    });
+    openCommentEdit(id);
+    return;
+  }
+
+  const editCancel = event.target.closest?.(".comment-edit-cancel");
+  if (editCancel) {
+    const form = editCancel.closest(".comment-edit-form");
+    const id = form?.getAttribute("data-comment-edit");
+    if (id) closeCommentEdit(id);
+    return;
+  }
+
   const cancelBtn = event.target.closest?.(".reply-preview-cancel");
   if (cancelBtn) {
     const form = cancelBtn.closest(".comment-form");
     if (form) clearReplyPreview(form);
   }
 });
+
+function openCommentEdit(commentId) {
+  const view = document.querySelector(`[data-comment-view="${commentId}"]`);
+  const form = document.querySelector(`[data-comment-edit="${commentId}"]`);
+  const editBtn = document.querySelector(`.comment-edit-btn[data-comment-id="${commentId}"]`);
+  if (!view || !form) return;
+  view.hidden = true;
+  form.hidden = false;
+  if (editBtn) editBtn.hidden = true;
+  const ta = form.querySelector("textarea");
+  ta?.focus();
+  if (ta) {
+    const len = ta.value.length;
+    ta.setSelectionRange(len, len);
+  }
+}
+
+function closeCommentEdit(commentId) {
+  const view = document.querySelector(`[data-comment-view="${commentId}"]`);
+  const form = document.querySelector(`[data-comment-edit="${commentId}"]`);
+  const editBtn = document.querySelector(`.comment-edit-btn[data-comment-id="${commentId}"]`);
+  if (!view || !form) return;
+  form.hidden = true;
+  view.hidden = false;
+  if (editBtn) editBtn.hidden = false;
+}
 
 document.addEventListener("paste", (event) => {
   const target = event.target;

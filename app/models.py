@@ -180,6 +180,7 @@ class Comment(Base):
     )
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    edited_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     issue: Mapped["Issue"] = relationship(back_populates="comments")
     author: Mapped["User"] = relationship(back_populates="comments")
@@ -189,6 +190,23 @@ class Comment(Base):
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="comment", cascade="all, delete-orphan", order_by="Attachment.created_at"
     )
+
+
+class IssueVisit(Base):
+    """Last time a user opened an issue detail page."""
+
+    __tablename__ = "issue_visits"
+    __table_args__ = (
+        UniqueConstraint("user_id", "issue_id", name="uq_issue_visit_user_issue"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship()
+    issue: Mapped["Issue"] = relationship()
 
 
 class Activity(Base):

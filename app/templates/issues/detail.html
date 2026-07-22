@@ -98,6 +98,7 @@
                 <strong>{{ a.actor.name if a.actor else 'Кто-то' }}</strong>
                 {% if a.comment.author_id == user.id %}<span class="msg-you">вы</span>{% endif %}
                 <time class="muted">{{ a.created_at.strftime('%d.%m %H:%M') if a.created_at else '' }}</time>
+                {% if a.comment.edited_at %}<span class="comment-edited muted">изменено</span>{% endif %}
               </div>
             </header>
             {% if a.comment.reply_to %}
@@ -106,26 +107,69 @@
               <span>{{ a.comment.reply_to.body | replace('\n', ' ') | truncate(180, True) }}</span>
             </blockquote>
             {% endif %}
-            {% if a.comment.body and a.comment.body.strip() %}
-            <div class="prose">{{ a.comment.body | mention_md(members) }}</div>
-            {% endif %}
-            {% if a.comment.attachments %}
-            <div class="photo-grid comment-photos">
-              {% for att in a.comment.attachments %}
-              <a href="/uploads/{{ att.stored_name }}" target="_blank" rel="noopener">
-                <img src="/uploads/{{ att.stored_name }}" alt="{{ att.filename }}">
-              </a>
-              {% endfor %}
+            <div class="comment-view" data-comment-view="{{ a.comment.id }}">
+              {% if a.comment.body and a.comment.body.strip() %}
+              <div class="prose">{{ a.comment.body | mention_md(members) }}</div>
+              {% endif %}
+              {% if a.comment.attachments %}
+              <div class="photo-grid comment-photos">
+                {% for att in a.comment.attachments %}
+                <a href="/uploads/{{ att.stored_name }}" target="_blank" rel="noopener">
+                  <img src="/uploads/{{ att.stored_name }}" alt="{{ att.filename }}">
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
             </div>
+            {% if a.comment.author_id == user.id and not issue.is_archived %}
+            <form class="comment-edit-form" hidden
+              method="post"
+              action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments/{{ a.comment.id }}/edit"
+              data-comment-edit="{{ a.comment.id }}">
+              <label class="sr-only" for="edit-body-{{ a.comment.id }}">Текст комментария</label>
+              <textarea id="edit-body-{{ a.comment.id }}" name="body" rows="3" required>{{ a.comment.body }}</textarea>
+              <div class="comment-edit-actions">
+                <button class="btn btn-primary btn-xs" type="submit">Сохранить</button>
+                <button class="btn btn-ghost btn-xs comment-edit-cancel" type="button">Отмена</button>
+              </div>
+            </form>
             {% endif %}
-            {% if not issue.is_archived %}
-            <button type="button" class="btn btn-ghost btn-xs comment-reply-btn"
-              data-reply-id="{{ a.comment.id }}"
-              data-reply-author="{{ a.actor.name if a.actor else 'Кто-то' }}"
-              data-reply-body="{{ (a.comment.body or '') | replace('\n', ' ') | truncate(120, True) | e }}">
-              Ответить
-            </button>
-            {% endif %}
+            <div class="comment-footer">
+              {% if not issue.is_archived %}
+              <div class="comment-actions">
+                {% if a.comment.author_id == user.id %}
+                <button type="button" class="btn-icon comment-edit-btn" aria-label="Изменить"
+                  data-comment-id="{{ a.comment.id }}" title="Изменить">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                  </svg>
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-ghost btn-xs comment-reply-btn"
+                  data-reply-id="{{ a.comment.id }}"
+                  data-reply-author="{{ a.actor.name if a.actor else 'Кто-то' }}"
+                  data-reply-body="{{ (a.comment.body or '') | replace('\n', ' ') | truncate(120, True) | e }}">
+                  Ответить
+                </button>
+              </div>
+              {% endif %}
+              {% if a.comment.author_id == user.id and comment_seen is defined and a.comment.id in comment_seen %}
+                {% set viewers = comment_seen[a.comment.id] %}
+                {% if viewers is not none %}
+                  {% if viewers %}
+                  <span class="comment-seen is-seen" title="Открыли карточку задачи">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                    {{ viewers | map(attribute='name') | join(', ') }}
+                  </span>
+                  {% else %}
+                  <span class="comment-seen is-unseen" title="Ещё не открывали задачу">не просмотрено</span>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+            </div>
             {% else %}
             <p class="timeline-system">
               <span class="avatar avatar-sm">{{ a.actor.initials if a.actor else '·' }}</span>

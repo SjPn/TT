@@ -23,6 +23,7 @@ from app.models import (
     Comment,
     Issue,
     IssueStatus,
+    IssueVisit,
     Notification,
     Priority,
     Project,
@@ -45,6 +46,12 @@ MENTION_RE = re.compile(r"@([^\s@]+(?:\s+[^\s@]+)?)")
 
 
 class MemberError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+class CommentError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
@@ -636,6 +643,137 @@ def add_comment(
     return comment
 
 
+def _comment_preview(body: str) -> str:
+    preview = (body or "").strip()
+    if len(preview) > 120:
+        return preview[:117] + "…"
+    return preview or "Прикрепил фото"
+
+
+def update_comment(
+    db: Session,
+    *,
+    issue: Issue,
+    comment: Comment,
+    user: User,
+    body: str,
+) -> Comment:
+    if comment.issue_id != issue.id:
+        raise CommentError("Комментарий не найден")
+    if comment.author_id != user.id:
+        raise CommentError("Редактировать может только автор")
+    if issue.is_archived:
+        raise CommentError("Архивную задачу нельзя менять")
+    text = body.strip()
+    if not text and not comment.attachments:
+        raise CommentError("Комментарий пустой")
+    comment.body = text if text else " "
+    comment.edited_at = datetime.now(UTC).replace(tzinfo=None)
+    db.add(comment)
+    act = (
+        db.query(Activity)
+        .filter(Activity.comment_id == comment.id, Activity.kind == "comment")
+        .first()
+    )
+    if act:
+        act.body = _comment_preview(comment.body)
+        db.add(act)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+def _as_naive(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
+
+
+def touch_issue_visit(db: Session, *, user: User, issue: Issue) -> IssueVisit:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    visit = (
+        db.query(IssueVisit)
+        .filter(IssueVisit.user_id == user.id, IssueVisit.issue_id == issue.id)
+        .first()
+    )
+    if visit:
+        visit.last_seen_at = now
+    else:
+        visit = IssueVisit(user_id=user.id, issue_id=issue.id, last_seen_at=now)
+        db.add(visit)
+    db.commit()
+    db.refresh(visit)
+    return visit
+
+
+def list_issue_visits(db: Session, issue: Issue) -> list[IssueVisit]:
+    return db.query(IssueVisit).filter(IssueVisit.issue_id == issue.id).all()
+
+
+def comment_counterpart_ids(issue: Issue, author_id: int) -> set[int]:
+    ids: set[int] = set()
+    if issue.author_id and issue.author_id != author_id:
+        ids.add(issue.author_id)
+    if issue.assignee_id and issue.assignee_id != author_id:
+        ids.add(issue.assignee_id)
+    return ids
+
+
+def comment_seen_by(
+    comment: Comment,
+    *,
+    issue: Issue,
+    visits_by_user: dict[int, IssueVisit],
+    users_by_id: dict[int, User],
+) -> list[User] | None:
+    """Users among author/assignee who opened the issue after the comment.
+
+    Returns None when there is no counterparty (nothing to show).
+    """
+    counterparts = comment_counterpart_ids(issue, comment.author_id)
+    if not counterparts:
+        return None
+    created = _as_naive(comment.created_at)
+    if not created:
+        return []
+    seen: list[User] = []
+    for uid in counterparts:
+        visit = visits_by_user.get(uid)
+        seen_at = _as_naive(visit.last_seen_at) if visit else None
+        if seen_at and seen_at >= created:
+            user = users_by_id.get(uid)
+            if user:
+                seen.append(user)
+    return seen
+
+
+def build_comment_seen_map(
+    *,
+    issue: Issue,
+    viewer: User,
+    visits: list[IssueVisit],
+) -> dict[int, list[User] | None]:
+    visits_by_user = {v.user_id: v for v in visits}
+    users_by_id: dict[int, User] = {}
+    if issue.author:
+        users_by_id[issue.author.id] = issue.author
+    if issue.assignee:
+        users_by_id[issue.assignee.id] = issue.assignee
+    result: dict[int, list[User] | None] = {}
+    for comment in issue.comments:
+        if comment.author_id != viewer.id:
+            continue
+        result[comment.id] = comment_seen_by(
+            comment,
+            issue=issue,
+            visits_by_user=visits_by_user,
+            users_by_id=users_by_id,
+        )
+    return result
+
+
 def _ext_for_type(content_type: str) -> str:
     return {
         "image/jpeg": ".jpg",
@@ -833,6 +971,20 @@ def migrate_comment_reply_to_id(engine) -> None:
         conn.execute(text("ALTER TABLE comments ADD COLUMN reply_to_id INTEGER"))
 
 
+def migrate_comment_edited_at(engine) -> None:
+    """Add edited_at column to comments if missing (SQLite)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "comments" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("comments")}
+    if "edited_at" in cols:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE comments ADD COLUMN edited_at DATETIME"))
+
+
 def _dt(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
@@ -904,6 +1056,7 @@ def build_project_export_zip(db: Session, project: Project) -> bytes:
                         "reply_to_id": comment.reply_to_id,
                         "body": comment.body,
                         "created_at": _dt(comment.created_at),
+                        "edited_at": _dt(comment.edited_at),
                         "attachments": comment_atts,
                     }
                 )

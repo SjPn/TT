@@ -20,12 +20,15 @@ from app.models import (
     User,
 )
 from app.services import (
+    CommentError,
     WorkflowError,
     add_comment,
+    build_comment_seen_map,
     confirm_issue_done,
     create_issue,
     delete_issue,
     issues_by_status,
+    list_issue_visits,
     list_issues,
     mark_issue_done,
     next_step_hint,
@@ -34,6 +37,8 @@ from app.services import (
     save_images,
     save_issue_images,
     start_issue,
+    touch_issue_visit,
+    update_comment,
     update_issue_status,
 )
 from app.templating import templates
@@ -219,11 +224,14 @@ def issue_detail(
     )
     if not issue:
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    touch_issue_visit(db, user=user, issue=issue)
     members = project_members(db, project)
     timeline = sorted(
         issue.activities,
         key=lambda a: (a.created_at is None, a.created_at, a.id),
     )
+    visits = list_issue_visits(db, issue)
+    comment_seen = build_comment_seen_map(issue=issue, viewer=user, visits=visits)
     return templates.TemplateResponse(
         request,
         "issues/detail.html",
@@ -232,6 +240,7 @@ def issue_detail(
             "issue": issue,
             "flash": flash,
             "timeline": timeline,
+            "comment_seen": comment_seen,
             "next_step": next_step_hint(issue=issue, user=user),
             "can_start": (
                 issue.assignee_id == user.id and issue.status == IssueStatus.OPEN
@@ -435,4 +444,30 @@ async def post_comment(
     )
     if has_photos:
         await save_images(db, issue=issue, files=list(photos), comment=comment)
+    return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+
+
+@router.post(
+    "/projects/{project_id}/issues/{issue_id}/comments/{comment_id}/edit",
+    response_class=HTMLResponse,
+)
+def edit_comment(
+    project_id: int,
+    issue_id: int,
+    comment_id: int,
+    body: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    project = require_project_access(db, user, project_id)
+    issue = db.get(Issue, issue_id)
+    if not issue or issue.project_id != project.id:
+        return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    comment = db.get(Comment, comment_id)
+    if not comment or comment.issue_id != issue.id:
+        return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+    try:
+        update_comment(db, issue=issue, comment=comment, user=user, body=body)
+    except CommentError:
+        pass
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)

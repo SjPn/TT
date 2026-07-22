@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=11">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body{% if flash is defined and flash %} data-flash="{{ flash }}"{% endif %}{% if project is defined and project %} class="has-project"{% endif %}>
@@ -69,7 +69,7 @@
     {% block content %}{% endblock %}
   </main>
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=3"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

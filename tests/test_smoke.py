@@ -667,6 +667,136 @@ def test_comment_notifies_author_and_assignee(client: TestClient):
     assert poll.json()["count"] >= 1
 
 
+def test_comment_edit_and_seen(client: TestClient):
+    _register(client, "ann@ex.com", "Анна")
+    from app.database import SessionLocal
+    from app.models import Comment, IssueVisit, Project, User
+
+    client.post("/projects", data={"name": "Seen", "key": "SEE", "description": ""})
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    _register(client, "bob@ex.com", "Боб")
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "ann@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/members",
+        data={"email": "bob@ex.com", "return_view": "list"},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        bob_id = db.query(User).filter(User.email == "bob@ex.com").one().id
+    finally:
+        db.close()
+
+    r = client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Правки и просмотр",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": str(bob_id),
+        },
+        follow_redirects=False,
+    )
+    issue_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[-1])
+
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "Первая версия"},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        comment = db.query(Comment).filter(Comment.issue_id == issue_id).one()
+        cid = comment.id
+    finally:
+        db.close()
+
+    detail = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert detail.status_code == 200
+    assert "не просмотрено" in detail.text
+    assert "comment-edit-btn" in detail.text
+
+    # Bob cannot edit Ann's comment
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "bob@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    denied = client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments/{cid}/edit",
+        data={"body": "Взлом"},
+        follow_redirects=False,
+    )
+    assert denied.status_code == 303
+    db = SessionLocal()
+    try:
+        comment = db.get(Comment, cid)
+        assert comment.body == "Первая версия"
+        assert comment.edited_at is None
+        visit = (
+            db.query(IssueVisit)
+            .filter(IssueVisit.issue_id == issue_id, IssueVisit.user_id == bob_id)
+            .first()
+        )
+        assert visit is None
+    finally:
+        db.close()
+
+    # Bob opens the issue → visit recorded
+    bob_view = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert bob_view.status_code == 200
+    assert "не просмотрено" not in bob_view.text  # Bob's own comments map empty / not author
+    db = SessionLocal()
+    try:
+        visit = (
+            db.query(IssueVisit)
+            .filter(IssueVisit.issue_id == issue_id, IssueVisit.user_id == bob_id)
+            .one()
+        )
+        assert visit.last_seen_at is not None
+    finally:
+        db.close()
+
+    # Ann edits her comment and sees Bob as viewer
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "ann@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    edited = client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments/{cid}/edit",
+        data={"body": "Исправленный текст"},
+        follow_redirects=False,
+    )
+    assert edited.status_code == 303
+    db = SessionLocal()
+    try:
+        comment = db.get(Comment, cid)
+        assert comment.body == "Исправленный текст"
+        assert comment.edited_at is not None
+    finally:
+        db.close()
+
+    detail2 = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert "Исправленный текст" in detail2.text
+    assert "изменено" in detail2.text
+    assert "is-seen" in detail2.text
+    assert "Боб" in detail2.text
+
+
 def test_project_export_zip(client: TestClient):
     _register(client, "u@ex.com", "U")
     client.post("/projects", data={"name": "ExportMe", "key": "EXP", "description": "d"})
