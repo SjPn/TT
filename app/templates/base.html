@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=10">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body{% if flash is defined and flash %} data-flash="{{ flash }}"{% endif %}{% if project is defined and project %} class="has-project"{% endif %}>
@@ -32,8 +32,8 @@
               <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5"/>
               <path d="M9.5 17a2.5 2.5 0 0 0 5 0"/>
             </svg>
-            <span class="notif-label">Уведомления</span>{% if request.state.unread_count is defined and request.state.unread_count %}
-            <span class="notif-badge">{{ request.state.unread_count }}</span>{% endif %}
+            <span class="notif-label">Уведомления</span>
+            <span class="notif-badge" {% if not request.state.unread_count %}hidden{% endif %}>{% if request.state.unread_count is defined and request.state.unread_count %}{{ request.state.unread_count }}{% endif %}</span>
           </summary>
           <div class="notif-panel">
             {% if request.state.notifications is defined and request.state.notifications %}
@@ -69,7 +69,7 @@
     {% block content %}{% endblock %}
   </main>
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

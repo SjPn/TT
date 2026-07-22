@@ -1,14 +1,22 @@
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import require_user
 from app.models import User
-from app.services import list_notifications, mark_notifications_read
+from app.services import list_notifications, mark_notifications_read, unread_notification_count
 from app.templating import templates
 
 router = APIRouter(tags=["notifications"])
+
+
+@router.get("/notifications/unread-count")
+def notifications_unread_count(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    return JSONResponse({"count": unread_notification_count(db, user)})
 
 
 @router.get("/notifications", response_class=HTMLResponse)

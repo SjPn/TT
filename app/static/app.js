@@ -267,3 +267,42 @@ document.addEventListener("paste", (event) => {
     showToast(added === 1 ? "Фото из буфера добавлено" : `Добавлено фото: ${added}`);
   }
 });
+
+function updateNotifBadge(count) {
+  const btn = document.querySelector(".notif-btn");
+  const badge = document.querySelector(".notif-badge");
+  if (!btn || !badge) return;
+  const n = Number(count) || 0;
+  if (n > 0) {
+    badge.textContent = String(n);
+    badge.hidden = false;
+    btn.classList.add("has-unread");
+  } else {
+    badge.textContent = "";
+    badge.hidden = true;
+    btn.classList.remove("has-unread");
+  }
+}
+
+async function pollUnreadNotifications() {
+  if (document.hidden) return;
+  if (!document.querySelector(".notif-btn")) return;
+  try {
+    const res = await fetch("/notifications/unread-count", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (typeof data.count === "number") updateNotifBadge(data.count);
+  } catch (_) {
+    /* ignore network blips */
+  }
+}
+
+if (document.querySelector(".notif-btn")) {
+  setInterval(pollUnreadNotifications, 45000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) pollUnreadNotifications();
+  });
+}

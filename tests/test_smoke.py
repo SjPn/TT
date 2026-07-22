@@ -580,6 +580,93 @@ def test_comment_reply(client: TestClient):
     assert "comment-quote" in detail.text
 
 
+def test_comment_notifies_author_and_assignee(client: TestClient):
+    _register(client, "ann@ex.com", "Анна")
+    from app.database import SessionLocal
+    from app.models import Notification, Project, User
+
+    client.post("/projects", data={"name": "Notify", "key": "NTF", "description": ""})
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    _register(client, "bob@ex.com", "Боб")
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "ann@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/members",
+        data={"email": "bob@ex.com", "return_view": "list"},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        bob_id = db.query(User).filter(User.email == "bob@ex.com").one().id
+    finally:
+        db.close()
+
+    r = client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Нужен комментарий",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": str(bob_id),
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    issue_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[-1])
+
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "bob@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "Готово, проверь"},
+        follow_redirects=False,
+    )
+
+    db = SessionLocal()
+    try:
+        ann = db.query(User).filter(User.email == "ann@ex.com").one()
+        bob = db.query(User).filter(User.email == "bob@ex.com").one()
+        ann_notifs = (
+            db.query(Notification)
+            .filter(Notification.user_id == ann.id, Notification.kind == "comment")
+            .all()
+        )
+        bob_self = (
+            db.query(Notification)
+            .filter(Notification.user_id == bob.id, Notification.kind == "comment")
+            .all()
+        )
+        assert len(ann_notifs) == 1
+        assert "Готово" in ann_notifs[0].body
+        assert bob_self == []
+    finally:
+        db.close()
+
+    client.post("/logout", follow_redirects=False)
+    client.post(
+        "/login",
+        data={"email": "ann@ex.com", "password": "secret1"},
+        follow_redirects=False,
+    )
+    poll = client.get("/notifications/unread-count")
+    assert poll.status_code == 200
+    assert poll.json()["count"] >= 1
+
+
 def test_project_export_zip(client: TestClient):
     _register(client, "u@ex.com", "U")
     client.post("/projects", data={"name": "ExportMe", "key": "EXP", "description": "d"})

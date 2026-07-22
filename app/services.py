@@ -305,7 +305,8 @@ def notify_mentions(
     author: User,
     members: list[User],
     text: str,
-) -> None:
+) -> set[int]:
+    notified: set[int] = set()
     for mentioned in resolve_mentions(text, members):
         if mentioned.id == author.id:
             continue
@@ -314,8 +315,53 @@ def notify_mentions(
             user_id=mentioned.id,
             kind="mention",
             title=f"{author.name} упомянул вас",
-            body=f"{issue.key}: {issue.title}",
+            body=f"{issue.title}",
             link=f"/projects/{issue.project_id}/issues/{issue.id}",
+        )
+        notified.add(mentioned.id)
+    return notified
+
+
+def notify_comment(
+    db: Session,
+    *,
+    issue: Issue,
+    author: User,
+    comment: Comment,
+    skip_user_ids: set[int] | None = None,
+) -> None:
+    """Notify author, assignee, and reply target about a new comment."""
+    recipients: set[int] = set()
+    if issue.author_id:
+        recipients.add(issue.author_id)
+    if issue.assignee_id:
+        recipients.add(issue.assignee_id)
+    reply_to_id = comment.reply_to_id
+    if reply_to_id:
+        parent = comment.reply_to or db.get(Comment, reply_to_id)
+        if parent and parent.author_id:
+            recipients.add(parent.author_id)
+    recipients.discard(author.id)
+    if skip_user_ids:
+        recipients -= skip_user_ids
+    if not recipients:
+        return
+
+    preview = (comment.body or "").strip()
+    if len(preview) > 100:
+        preview = preview[:97] + "…"
+    if not preview:
+        preview = "Прикрепил фото"
+
+    link = f"/projects/{issue.project_id}/issues/{issue.id}"
+    for user_id in recipients:
+        notify(
+            db,
+            user_id=user_id,
+            kind="comment",
+            title=f"{author.name} прокомментировал: {issue.title}",
+            body=preview,
+            link=link,
         )
 
 
@@ -575,8 +621,18 @@ def add_comment(
     )
     db.commit()
     db.refresh(comment)
+    mentioned_ids: set[int] = set()
     if members and body.strip():
-        notify_mentions(db, issue=issue, author=author, members=members, text=body)
+        mentioned_ids = notify_mentions(
+            db, issue=issue, author=author, members=members, text=body
+        )
+    notify_comment(
+        db,
+        issue=issue,
+        author=author,
+        comment=comment,
+        skip_user_ids=mentioned_ids,
+    )
     return comment
 
 

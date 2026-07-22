@@ -37,8 +37,13 @@ class AuthRedirectMiddleware(BaseHTTPMiddleware):
             user = get_current_user(request, db)
             if user is None:
                 return RedirectResponse("/login", status_code=303)
-            request.state.unread_count = unread_notification_count(db, user)
-            request.state.notifications = list_notifications(db, user, limit=8)
+            # Poll endpoint only needs auth; skip loading the dropdown list.
+            if path == "/notifications/unread-count":
+                request.state.unread_count = 0
+                request.state.notifications = []
+            else:
+                request.state.unread_count = unread_notification_count(db, user)
+                request.state.notifications = list_notifications(db, user, limit=8)
         finally:
             db.close()
 

@@ -286,6 +286,7 @@ kbd {
   margin-left: 0.3rem;
   box-shadow: 0 0 0 2px var(--surface);
 }
+.notif-badge[hidden] { display: none !important; }
 .notif-btn.has-unread { color: var(--bug); font-weight: 700; }
 .notif-panel {
   position: absolute;
@@ -1097,6 +1098,43 @@ input[type="file"]:hover::file-selector-button {
 .timeline-item.kind-created .timeline-rail,
 .timeline-item.kind-assign .timeline-rail { border-left-color: var(--teal); }
 .timeline-item.kind-comment .timeline-rail { border-left-color: #9db0ba; }
+.timeline-item.is-mine .timeline-rail { border-left-color: var(--teal); }
+.timeline-item.is-theirs .timeline-rail { border-left-color: var(--status-open); }
+.timeline-item.is-mine .timeline-body,
+.timeline-item.is-theirs .timeline-body {
+  border-radius: var(--radius);
+  padding: 0.7rem 0.85rem 0.75rem;
+}
+.timeline-item.is-mine .timeline-body {
+  background: var(--teal-soft);
+  border: 1px solid #b5dede;
+}
+.timeline-item.is-theirs .timeline-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.timeline-item.is-mine .comment-quote {
+  background: rgba(255, 255, 255, 0.55);
+  border-left-color: var(--teal-ink);
+}
+.timeline-item.is-theirs .comment-quote {
+  background: var(--bg-accent);
+  border-left-color: var(--status-open);
+}
+.msg-you {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  text-transform: lowercase;
+}
 .timeline-head {
   display: flex;
   gap: 0.65rem;

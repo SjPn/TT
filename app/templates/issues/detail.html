@@ -88,7 +88,7 @@
       <h2>Лента</h2>
       <ol class="timeline">
         {% for a in timeline %}
-        <li class="timeline-item kind-{{ a.kind }}">
+        <li class="timeline-item kind-{{ a.kind }}{% if a.kind == 'comment' and a.comment %}{% if a.comment.author_id == user.id %} is-mine{% else %} is-theirs{% endif %}{% endif %}">
           <div class="timeline-rail" aria-hidden="true"></div>
           <div class="timeline-body">
             {% if a.kind == 'comment' and a.comment %}
@@ -96,6 +96,7 @@
               <span class="avatar">{{ a.actor.initials if a.actor else '?' }}</span>
               <div>
                 <strong>{{ a.actor.name if a.actor else 'Кто-то' }}</strong>
+                {% if a.comment.author_id == user.id %}<span class="msg-you">вы</span>{% endif %}
                 <time class="muted">{{ a.created_at.strftime('%d.%m %H:%M') if a.created_at else '' }}</time>
               </div>
             </header>
