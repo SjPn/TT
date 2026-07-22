@@ -125,9 +125,26 @@
             <form class="comment-edit-form" hidden
               method="post"
               action="/projects/{{ project.id }}/issues/{{ issue.id }}/comments/{{ a.comment.id }}/edit"
+              enctype="multipart/form-data"
               data-comment-edit="{{ a.comment.id }}">
               <label class="sr-only" for="edit-body-{{ a.comment.id }}">Текст комментария</label>
-              <textarea id="edit-body-{{ a.comment.id }}" name="body" rows="3" required>{{ a.comment.body }}</textarea>
+              <textarea id="edit-body-{{ a.comment.id }}" name="body" rows="3"
+                placeholder="Текст или Ctrl+V со скриншотом…">{{ a.comment.body if a.comment.body.strip() else '' }}</textarea>
+              <div class="photo-preview edit-existing-photos" {% if not a.comment.attachments %}hidden{% endif %}>
+                {% for att in a.comment.attachments %}
+                <div class="photo-preview-item edit-att-item" data-att-id="{{ att.id }}">
+                  <img src="/uploads/{{ att.stored_name }}" alt="{{ att.filename }}">
+                  <input type="checkbox" name="remove_attachment_ids" value="{{ att.id }}" class="sr-only remove-att-cb">
+                  <button type="button" class="photo-preview-remove edit-att-remove"
+                    aria-label="Удалить фото {{ att.filename }}">×</button>
+                </div>
+                {% endfor %}
+              </div>
+              <label class="edit-photos-label">Фото
+                <span class="hint">Добавить файлы или Ctrl+V</span>
+                <input type="file" name="photos" accept="image/*" multiple data-preview>
+                <div class="photo-preview" hidden></div>
+              </label>
               <div class="comment-edit-actions">
                 <button class="btn btn-primary btn-xs" type="submit">Сохранить</button>
                 <button class="btn btn-ghost btn-xs comment-edit-cancel" type="button">Отмена</button>

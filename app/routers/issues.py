@@ -26,6 +26,7 @@ from app.services import (
     build_comment_seen_map,
     confirm_issue_done,
     create_issue,
+    delete_comment_attachments,
     delete_issue,
     issues_by_status,
     list_issue_visits,
@@ -451,11 +452,13 @@ async def post_comment(
     "/projects/{project_id}/issues/{issue_id}/comments/{comment_id}/edit",
     response_class=HTMLResponse,
 )
-def edit_comment(
+async def edit_comment(
     project_id: int,
     issue_id: int,
     comment_id: int,
     body: str = Form(""),
+    remove_attachment_ids: Annotated[list[int], Form()] = [],
+    photos: Annotated[list[UploadFile], File()] = [],
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -463,11 +466,42 @@ def edit_comment(
     issue = db.get(Issue, issue_id)
     if not issue or issue.project_id != project.id:
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
-    comment = db.get(Comment, comment_id)
+    comment = (
+        db.query(Comment)
+        .options(joinedload(Comment.attachments))
+        .filter(Comment.id == comment_id)
+        .first()
+    )
     if not comment or comment.issue_id != issue.id:
         return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+    if comment.author_id != user.id or issue.is_archived:
+        return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+
+    has_photos = any(p.filename for p in photos) if photos else False
+    remove_ids = [i for i in remove_attachment_ids if isinstance(i, int)]
+    current_ids = {att.id for att in comment.attachments}
+    remaining = len(current_ids - set(remove_ids))
+    if not body.strip() and remaining == 0 and not has_photos:
+        return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)
+
     try:
-        update_comment(db, issue=issue, comment=comment, user=user, body=body)
+        if remove_ids:
+            delete_comment_attachments(
+                db,
+                comment=comment,
+                user=user,
+                attachment_ids=remove_ids,
+            )
+        update_comment(
+            db,
+            issue=issue,
+            comment=comment,
+            user=user,
+            body=body,
+            has_new_photos=has_photos,
+        )
+        if has_photos:
+            await save_images(db, issue=issue, files=list(photos), comment=comment)
     except CommentError:
         pass
     return RedirectResponse(f"/projects/{project.id}/issues/{issue.id}", status_code=303)

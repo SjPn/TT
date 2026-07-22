@@ -877,6 +877,16 @@ label {
   border-radius: 10px;
   background: var(--surface);
 }
+.edit-photos-label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.edit-photos-label .hint { font-weight: 500; }
+.edit-existing-photos { margin-bottom: 0.15rem; }
+.edit-att-item[hidden] { display: none !important; }
 .comment-edit-actions {
   display: flex;
   gap: 0.35rem;

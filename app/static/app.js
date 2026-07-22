@@ -219,6 +219,21 @@ function setReplyPreview(form, { id, author, body }) {
 }
 
 document.addEventListener("click", (event) => {
+  const removeExistingAtt = event.target.closest?.(".edit-att-remove");
+  if (removeExistingAtt) {
+    const item = removeExistingAtt.closest(".edit-att-item");
+    const cb = item?.querySelector?.(".remove-att-cb");
+    if (item && cb) {
+      cb.checked = true;
+      item.hidden = true;
+      const box = item.parentElement;
+      if (box && !box.querySelector(".edit-att-item:not([hidden])")) {
+        box.hidden = true;
+      }
+    }
+    return;
+  }
+
   const removePhotoBtn = event.target.closest?.(".photo-preview-remove");
   if (removePhotoBtn) {
     const preview = removePhotoBtn.closest(".photo-preview");
@@ -287,11 +302,30 @@ function openCommentEdit(commentId) {
   }
 }
 
+function resetCommentEditForm(form) {
+  if (!form) return;
+  form.querySelectorAll(".edit-att-item").forEach((item) => {
+    item.hidden = false;
+    const cb = item.querySelector(".remove-att-cb");
+    if (cb) cb.checked = false;
+  });
+  const existing = form.querySelector(".edit-existing-photos");
+  if (existing) {
+    existing.hidden = !existing.querySelector(".edit-att-item");
+  }
+  const fileInput = form.querySelector('input[type="file"][data-preview]');
+  if (fileInput) {
+    fileInput.value = "";
+    renderPhotoPreview(fileInput);
+  }
+}
+
 function closeCommentEdit(commentId) {
   const view = document.querySelector(`[data-comment-view="${commentId}"]`);
   const form = document.querySelector(`[data-comment-edit="${commentId}"]`);
   const editBtn = document.querySelector(`.comment-edit-btn[data-comment-id="${commentId}"]`);
   if (!view || !form) return;
+  resetCommentEditForm(form);
   form.hidden = true;
   view.hidden = false;
   if (editBtn) editBtn.hidden = false;

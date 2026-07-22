@@ -797,6 +797,82 @@ def test_comment_edit_and_seen(client: TestClient):
     assert "Боб" in detail2.text
 
 
+def _jpeg_bytes(color=(20, 40, 60)):
+    import io
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (12, 12), color=color).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def test_comment_edit_photos(client: TestClient):
+    _register(client, "ann@ex.com", "Анна")
+    from app.database import SessionLocal
+    from app.models import Attachment, Comment, Project
+
+    client.post("/projects", data={"name": "Photos", "key": "PHO", "description": ""})
+    db = SessionLocal()
+    try:
+        pid = db.query(Project).one().id
+    finally:
+        db.close()
+
+    r = client.post(
+        f"/projects/{pid}/issues",
+        data={
+            "title": "Фото в правке",
+            "description": "",
+            "priority": "p3",
+            "labels": "",
+            "assignee_id": "",
+        },
+        follow_redirects=False,
+    )
+    issue_id = int(r.headers["location"].split("?")[0].rsplit("/", 1)[-1])
+
+    first = _jpeg_bytes((10, 20, 30))
+    client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments",
+        data={"body": "было фото"},
+        files={"photos": ("one.jpg", first, "image/jpeg")},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        comment = db.query(Comment).filter(Comment.issue_id == issue_id).one()
+        cid = comment.id
+        att = db.query(Attachment).filter(Attachment.comment_id == cid).one()
+        old_id = att.id
+        old_stored = att.stored_name
+    finally:
+        db.close()
+
+    second = _jpeg_bytes((200, 100, 50))
+    edited = client.post(
+        f"/projects/{pid}/issues/{issue_id}/comments/{cid}/edit",
+        data={"body": "новое", "remove_attachment_ids": str(old_id)},
+        files={"photos": ("two.jpg", second, "image/jpeg")},
+        follow_redirects=False,
+    )
+    assert edited.status_code == 303
+
+    db = SessionLocal()
+    try:
+        comment = db.get(Comment, cid)
+        assert comment.body == "новое"
+        atts = db.query(Attachment).filter(Attachment.comment_id == cid).all()
+        assert len(atts) == 1
+        assert atts[0].filename == "two.jpg"
+        assert atts[0].stored_name != old_stored
+    finally:
+        db.close()
+
+    detail = client.get(f"/projects/{pid}/issues/{issue_id}")
+    assert "новое" in detail.text
+    assert "edit-existing-photos" in detail.text
+
+
 def test_project_export_zip(client: TestClient):
     _register(client, "u@ex.com", "U")
     client.post("/projects", data={"name": "ExportMe", "key": "EXP", "description": "d"})

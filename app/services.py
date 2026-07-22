@@ -657,6 +657,7 @@ def update_comment(
     comment: Comment,
     user: User,
     body: str,
+    has_new_photos: bool = False,
 ) -> Comment:
     if comment.issue_id != issue.id:
         raise CommentError("Комментарий не найден")
@@ -665,7 +666,10 @@ def update_comment(
     if issue.is_archived:
         raise CommentError("Архивную задачу нельзя менять")
     text = body.strip()
-    if not text and not comment.attachments:
+    att_count = (
+        db.query(Attachment).filter(Attachment.comment_id == comment.id).count()
+    )
+    if not text and att_count == 0 and not has_new_photos:
         raise CommentError("Комментарий пустой")
     comment.body = text if text else " "
     comment.edited_at = datetime.now(UTC).replace(tzinfo=None)
@@ -681,6 +685,33 @@ def update_comment(
     db.commit()
     db.refresh(comment)
     return comment
+
+
+def delete_comment_attachments(
+    db: Session,
+    *,
+    comment: Comment,
+    user: User,
+    attachment_ids: list[int],
+) -> int:
+    if comment.author_id != user.id:
+        raise CommentError("Удалять фото может только автор")
+    if not attachment_ids:
+        return 0
+    removed = 0
+    for att_id in attachment_ids:
+        att = db.get(Attachment, att_id)
+        if not att or att.comment_id != comment.id:
+            continue
+        stored = att.stored_name
+        db.delete(att)
+        removed += 1
+        path = UPLOAD_DIR / stored
+        if path.is_file():
+            path.unlink(missing_ok=True)
+    if removed:
+        db.commit()
+    return removed
 
 
 def _as_naive(dt: datetime | None) -> datetime | None:
